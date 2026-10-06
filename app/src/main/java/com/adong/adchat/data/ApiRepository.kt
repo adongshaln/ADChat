@@ -367,6 +367,8 @@ class ApiRepository internal constructor(
             applyGptOptimizations(body, profile, model, cacheKey, responsesApi = false, explicitCache = explicitCache)
             ModelContextPolicy.applyToRequest(body, profile.contextLimits(model), responses = false)
             applyGenerationOptions(body, generationOptions, responsesApi = false, model = model)
+            // 放在生成参数之后：预设可能压低 max_tokens，Claude 的思考预算必须按最终值收紧。
+            applyReasoningPolicy(body, profile, model, responsesApi = false)
             val request = requestBuilder(profile, resolveUrl(profile.baseUrl, profile.chatPath))
                 .header("Accept", "text/event-stream")
                 .header("Cache-Control", "no-cache")
@@ -639,6 +641,7 @@ class ApiRepository internal constructor(
             applyGptOptimizations(body, profile, model, cacheKey, responsesApi = true, explicitCache = false)
             lastRequestTokens = ModelContextPolicy.applyToRequest(body, profile.contextLimits(model), responses = true, carriedTokens = carriedContextTokens)
             applyGenerationOptions(body, generationOptions, responsesApi = true, model = model)
+            applyReasoningPolicy(body, profile, model, responsesApi = true)
             val request = requestBuilder(profile, resolveUrl(profile.baseUrl, profile.responsesPath))
                 .header("Accept", "text/event-stream")
                 .header("Cache-Control", "no-cache")
@@ -925,16 +928,35 @@ $query"""
         explicitCache: Boolean
     ) {
         if (!model.isGpt56Family()) return
-        if (profile.reasoningEffort.isNotBlank() && profile.reasoningEffort != "default") {
-            if (responsesApi) body.put("reasoning", JSONObject().put("effort", profile.reasoningEffort))
-            else body.put("reasoning_effort", profile.reasoningEffort)
-        }
         if (profile.promptCacheEnabled && cacheKey.isNotBlank()) {
             body.put("prompt_cache_key", cacheKey.take(64))
             if (explicitCache && !responsesApi) {
                 body.put("prompt_cache_options", JSONObject().put("mode", "explicit").put("ttl", "30m"))
             }
         }
+    }
+
+    /**
+     * 思考强度按模型家族写入：GPT/Grok 用 effort，Claude 用 thinking.budget_tokens，
+     * GLM/Kimi/DeepSeek 用 thinking 开关加各自 effort。放在上下文上限与生成预设都写好之后调用，
+     * Claude 的思考预算必须严格小于最终生效的 max_tokens。
+     */
+    private fun applyReasoningPolicy(
+        body: JSONObject,
+        profile: ApiProfile,
+        model: String,
+        responsesApi: Boolean
+    ) {
+        ReasoningPolicy.write(
+            body = body,
+            model = model,
+            effort = profile.reasoningEffort,
+            responsesApi = responsesApi,
+            outputTokenLimit = body.optInt(if (responsesApi) "max_output_tokens" else "max_tokens", 0)
+                .takeIf { body.has(if (responsesApi) "max_output_tokens" else "max_tokens") && it > 0 }
+                ?: profile.contextLimits(model)?.outputTokens
+                ?: 0
+        )
     }
 
     /** Apply the portable part of a Tavern generation preset without overriding Aster's context safety cap. */
@@ -951,9 +973,12 @@ $query"""
             options.topP?.let { body.put("top_p", it) }
         }
         if (!responsesApi) {
-            options.frequencyPenalty?.let { body.put("frequency_penalty", it) }
-            options.presencePenalty?.let { body.put("presence_penalty", it) }
-            options.seed?.let { body.put("seed", it) }
+            // xAI 的推理模型直接拒绝 presence_penalty / frequency_penalty / stop，带回就会 400。
+            if (!ReasoningPolicy.forbidsSamplingControls(model)) {
+                options.frequencyPenalty?.let { body.put("frequency_penalty", it) }
+                options.presencePenalty?.let { body.put("presence_penalty", it) }
+                options.seed?.let { body.put("seed", it) }
+            }
         }
         options.maxOutputTokens?.let { requested ->
             val key = if (responsesApi) "max_output_tokens" else "max_tokens"

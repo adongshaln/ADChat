@@ -55,6 +55,8 @@ fun ConversationComposer(
     placeholder: String = "说说你的想法…",
     testTag: String = "chat",
     configureRequired: Boolean = false,
+    contextAction: (@Composable () -> Unit)? = null,
+    reasoningAction: (@Composable () -> Unit)? = null,
     trailingActions: @Composable () -> Unit = {}
 ) {
     val focus = LocalFocusManager.current
@@ -199,8 +201,13 @@ fun ConversationComposer(
                         }
                     }
                     Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-                        androidx.compose.animation.AnimatedVisibility(visible = isFocused, enter = fadeIn(tween(150)), exit = fadeOut(tween(90))) {
-                            trailingActions()
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            // 上下文进度与思考强度常驻，不随焦点隐藏；工具栏按钮仍只在聚焦时出现。
+                            contextAction?.invoke()
+                            reasoningAction?.invoke()
+                            androidx.compose.animation.AnimatedVisibility(visible = isFocused, enter = fadeIn(tween(150)), exit = fadeOut(tween(90))) {
+                                trailingActions()
+                            }
                         }
                     }
                     AnimatedVisibility(visible = isFocused, enter = fadeIn(tween(150)), exit = fadeOut(tween(90))) {

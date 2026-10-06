@@ -384,9 +384,62 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setChatReasoningEffort(effort: String) {
-        val normalized = effort.takeIf { it in REASONING_EFFORTS } ?: "medium"
+        val normalized = effort.trim().takeIf { it in REASONING_EFFORTS } ?: REASONING_DEFAULT
         updateProfile(chatProfile.id) { it.copy(reasoningEffort = normalized) }
         persist()
+    }
+
+    /** 上下文长度与输出上限一起设置；window 为 null 表示恢复默认。 */
+    fun setModelContextLimits(profileId: String, model: String, limits: ModelContextLimits?) {
+        val profile = profiles.firstOrNull { it.id == profileId } ?: return
+        val id = model.trim().takeIf { it.isNotEmpty() } ?: return
+        if (profile.modelContexts[id] == limits) return
+        updateProfile(profileId) { it.copy(modelContexts = if (limits == null) it.modelContexts - id else it.modelContexts + (id to limits)) }
+        persist()
+        notice = if (limits == null) {
+            "已恢复默认上下文，下一次请求生效"
+        } else {
+            "上下文 ${ContextWindowPresets.label(limits.windowTokens)} · 输出 ${limits.outputTokens} Token 已保存，下一次请求生效"
+        }
+    }
+
+    /**
+     * 输入框上的上下文进度。按真实会发送的内容估算：系统提示、历史（含被省略的整轮）、
+     * 正在输入的草稿与图片、请求开销，并与该模型已配置的输入预算对比。
+     */
+    fun contextUsage(
+        draft: String = "",
+        draftAttachments: List<ChatImageAttachment> = emptyList()
+    ): ContextUsage {
+        val profile = chatProfile
+        val model = profile.chatModel
+        val limits = profile.contextLimits(model)
+        val history = messages.filterNot { it.isStreaming }
+        val prepared = runCatching {
+            ModelContextPolicy.prepare(appConfig.systemPrompt, history, limits, trimHistory = true)
+        }.getOrNull()
+        val effective = prepared?.history ?: history
+        val systemTokens = ContextTokenEstimate.text(appConfig.systemPrompt) + 64
+        var historyTokens = ContextTokenEstimate.text(draft) + if (draft.isBlank()) 0 else 16
+        var attachmentTokens = draftAttachments.size * ContextTokenEstimate.IMAGE_TOKENS
+        effective.forEach { message ->
+            historyTokens += ContextTokenEstimate.text(message.content) + 16
+            attachmentTokens += message.attachments.size * ContextTokenEstimate.IMAGE_TOKENS
+            message.toolActivities.forEach { historyTokens += ContextTokenEstimate.text(it.label) + 24 }
+        }
+        val lastUsage = messages.lastOrNull { it.usage != null }?.usage
+        return ContextUsage(
+            model = model,
+            limits = limits,
+            systemTokens = systemTokens,
+            historyTokens = historyTokens,
+            attachmentTokens = attachmentTokens,
+            overheadTokens = ModelContextPolicy.REQUEST_OVERHEAD,
+            omittedTurns = prepared?.omittedTurns ?: 0,
+            lastRequestInputTokens = lastUsage?.inputTokens ?: 0,
+            lastRequestOutputTokens = lastUsage?.outputTokens ?: 0,
+            lastRequestReasoningTokens = lastUsage?.reasoningTokens ?: 0
+        )
     }
 
     fun setChatWebSearchEnabled(enabled: Boolean) {
@@ -1864,8 +1917,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             contentLength < 24_000 -> 108L
             else -> 136L
         }
-        val REASONING_EFFORTS = setOf("low", "medium", "high", "xhigh", "max")
+
+        /** 客户端认识的思考强度取值；具体某个模型可用哪些由 ReasoningPolicy 决定。 */
+        val REASONING_EFFORTS =
+            setOf("default", "none", "minimal", "low", "medium", "high", "xhigh", "max", "off", "on")
+        const val REASONING_DEFAULT = "default"
     }
+}
+
+/** 输入框上下文按钮背后的估算快照；全部是客户端本地估算，不等于供应商真实计费。 */
+data class ContextUsage(
+    val model: String,
+    val limits: ModelContextLimits?,
+    val systemTokens: Int,
+    val historyTokens: Int,
+    val attachmentTokens: Int,
+    val overheadTokens: Int,
+    val omittedTurns: Int,
+    val lastRequestInputTokens: Int,
+    val lastRequestOutputTokens: Int,
+    val lastRequestReasoningTokens: Int
+) {
+    val configured: Boolean get() = limits != null
+    val totalTokens: Int get() = systemTokens + historyTokens + attachmentTokens + overheadTokens
+    val budgetTokens: Int get() = limits?.inputTokens ?: 0
+    val windowTokens: Int get() = limits?.windowTokens ?: 0
+    val outputTokens: Int get() = limits?.outputTokens ?: 0
+    val safetyTokens: Int get() = limits?.safetyTokens ?: 0
+
+    /** 0..1；未配置上下文长度时返回 0，由界面显示为未知状态。 */
+    val progress: Float
+        get() = if (budgetTokens <= 0) 0f else (totalTokens.toFloat() / budgetTokens).coerceIn(0f, 1f)
+
+    val percent: Int get() = if (budgetTokens <= 0) 0 else (progress * 100).toInt()
+
+    val overflow: Boolean get() = budgetTokens > 0 && totalTokens > budgetTokens
 }
 
 private data class LoadedReferenceImage(

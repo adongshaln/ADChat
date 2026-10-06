@@ -60,6 +60,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.adong.adchat.data.ChatImageAttachment
+import com.adong.adchat.data.ReasoningPolicy
 import com.adong.adchat.data.usesResponses
 import com.adong.adchat.data.ChatFileAttachment
 import com.adong.adchat.data.ChatMessage
@@ -69,6 +70,7 @@ import com.adong.adchat.data.TOOL_STATUS_COMPLETED
 import com.adong.adchat.data.TOOL_STATUS_FAILED
 import com.adong.adchat.data.TOOL_STATUS_RUNNING
 import com.adong.adchat.ui.MainViewModel
+import com.adong.adchat.ui.ContextUsage
 import com.adong.adchat.ui.chat.questionNavigationTargets
 import com.adong.adchat.ui.components.*
 import com.adong.adchat.ui.components.AdChoiceOption
@@ -82,9 +84,11 @@ import com.adong.adchat.ui.markdown.markdownTableToTsv
 import com.adong.adchat.ui.markdown.parseMarkdownTableAt
 import com.adong.adchat.ui.theme.*
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -109,6 +113,22 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
         )
     }
     var showSwitcher by remember { mutableStateOf(false) }
+    var showContextDialog by remember { mutableStateOf(false) }
+    val contextModel = vm.chatProfile.chatModel
+    // 估算要走整段历史，放在后台算，避免每次重组都卡一帧。
+    val contextUsage by produceState<ContextUsage?>(
+        initialValue = null,
+        vm.messages.size,
+        vm.messages.lastOrNull()?.content?.length ?: 0,
+        contextModel,
+        vm.chatInput,
+        vm.chatAttachments.size,
+        vm.appConfig.systemPrompt
+    ) {
+        value = withContext(Dispatchers.Default) {
+            vm.contextUsage(vm.chatInput, vm.chatAttachments.toList())
+        }
+    }
     var autoFollow by remember { mutableStateOf(true) }
     var composerFocused by remember { mutableStateOf(false) }
     var composerHeightPx by remember { mutableIntStateOf(0) }
@@ -313,6 +333,14 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                     onReasoningEffortChange = vm::setChatReasoningEffort,
                     onWebSearchToggle = vm::setChatWebSearchEnabled,
                     onFileCreationToggle = vm::setChatFileCreationEnabled,
+                    contextUsage = contextUsage,
+                    onSelectContextWindow = { window ->
+                        vm.setModelContextWindow(vm.chatProfile.id, contextModel, window)
+                    },
+                    onCustomizeContext = { showContextDialog = true },
+                    onResetContext = {
+                        vm.setModelContextLimits(vm.chatProfile.id, contextModel, null)
+                    },
                     onValueChange = vm::updateChatInput,
                     onPickImages = {
                         chatImagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
@@ -329,6 +357,18 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
     }
     if (showSwitcher) {
         QuickModelSwitcher(kind = RouteKind.Chat, vm = vm, onDismiss = { showSwitcher = false }, onManageApis = onOpenSettings)
+    }
+    if (showContextDialog) {
+        val limits = vm.chatProfile.modelContexts[contextModel.trim()]
+        ModelContextDialog(
+            model = contextModel,
+            initial = limits,
+            onDismiss = { showContextDialog = false },
+            onApply = { applied ->
+                showContextDialog = false
+                vm.setModelContextLimits(vm.chatProfile.id, contextModel, applied)
+            }
+        )
     }
 }
 
@@ -1559,16 +1599,46 @@ private fun ChatComposer(
     onSend: () -> Unit,
     onStop: () -> Unit,
     onFocusChange: (Boolean) -> Unit,
+    contextUsage: ContextUsage?,
+    onSelectContextWindow: (Int) -> Unit,
+    onCustomizeContext: () -> Unit,
+    onResetContext: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val focus = LocalFocusManager.current
     var showEffortSheet by remember { mutableStateOf(false) }
     var showToolsSheet by remember { mutableStateOf(false) }
+    var showContextSheet by remember { mutableStateOf(false) }
+    val effortChoices = remember(model) { ReasoningPolicy.choices(model) }
+    val currentEffort = remember(model, reasoningEffort) { ReasoningPolicy.choiceOf(model, reasoningEffort) }
     ConversationComposer(
         value = value, attachments = attachments, loading = loading, attachmentLoading = attachmentLoading,
         onValueChange = onValueChange, onOptionsClick = { showToolsSheet = true }, onRemoveImage = onRemoveImage,
         onSend = onSend, onStop = onStop, onFocusChange = onFocusChange,
         focusRequester = focusRequester, modifier = modifier,
+        contextAction = {
+            ComposerContextRing(
+                percent = contextUsage?.percent ?: 0,
+                configured = contextUsage?.configured == true,
+                overflow = contextUsage?.overflow == true,
+                onClick = {
+                    focus.clearFocus()
+                    showContextSheet = true
+                }
+            )
+        },
+        reasoningAction = if (effortChoices.isEmpty()) null else {
+            {
+                ComposerReasoningButton(
+                    label = compactEffortLabel(currentEffort?.label ?: "默认"),
+                    detailed = currentEffort?.id != ReasoningPolicy.DEFAULT,
+                    onClick = {
+                        focus.clearFocus()
+                        showEffortSheet = true
+                    }
+                )
+            }
+        },
         trailingActions = {
                         Surface(
                             onClick = {
@@ -1580,7 +1650,8 @@ private fun ChatComposer(
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Row(
-                                Modifier.widthIn(max = 128.dp).padding(horizontal = 9.dp, vertical = 8.dp),
+                                // 与常驻的上下文圈、思考强度按钮共享一行，窄屏也要放得下。
+                                Modifier.widthIn(max = 88.dp).padding(horizontal = 9.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
@@ -1612,35 +1683,61 @@ private fun ChatComposer(
             onReasoningClick = { showToolsSheet = false; showEffortSheet = true },
             onWebSearchToggle = onWebSearchToggle,
             onFileCreationToggle = onFileCreationToggle,
+            reasoningSupported = effortChoices.isNotEmpty(),
             onDismiss = { showToolsSheet = false }
         )
     }
+    if (showContextSheet && contextUsage != null) {
+        ComposerContextSheet(
+            model = contextUsage.model,
+            limits = contextUsage.limits,
+            totalTokens = contextUsage.totalTokens,
+            systemTokens = contextUsage.systemTokens,
+            historyTokens = contextUsage.historyTokens,
+            attachmentTokens = contextUsage.attachmentTokens,
+            overheadTokens = contextUsage.overheadTokens,
+            omittedTurns = contextUsage.omittedTurns,
+            lastRequestInputTokens = contextUsage.lastRequestInputTokens,
+            lastRequestOutputTokens = contextUsage.lastRequestOutputTokens,
+            lastRequestReasoningTokens = contextUsage.lastRequestReasoningTokens,
+            onSelectWindow = onSelectContextWindow,
+            onCustomize = { showContextSheet = false; onCustomizeContext() },
+            onReset = onResetContext,
+            onDismiss = { showContextSheet = false }
+        )
+    }
     if (showEffortSheet) {
+        val responsesApi = apiMode == "responses"
+        val contract = ReasoningPolicy.contract(model, responsesApi)
         AdSelectionSheet(
-            title = "选择思考强度",
-            subtitle = "当前模型的推理预算会立即更新",
-            options = REASONING_OPTIONS.map { (id, label) ->
+            title = "思考强度",
+            subtitle = if (effortChoices.isEmpty()) "当前模型不支持调节思考强度" else "$model · ${contract.field}",
+            options = effortChoices.map { choice ->
                 AdChoiceOption(
-                    id = id,
-                    title = label,
-                    subtitle = reasoningEffortDescription(id),
-                    icon = when (id) {
+                    id = choice.id,
+                    title = choice.label,
+                    subtitle = choice.hint,
+                    icon = when (choice.id) {
+                        "off", "none" -> Icons.Rounded.Bolt
+                        "on" -> Icons.Rounded.Psychology
                         "low" -> Icons.Rounded.Bolt
                         "medium" -> Icons.Rounded.Balance
                         "high" -> Icons.Rounded.Psychology
                         "xhigh" -> Icons.Rounded.AccountTree
+                        "max" -> Icons.Rounded.AutoAwesome
                         else -> Icons.Rounded.AutoAwesome
                     },
-                    badge = when (id) {
+                    badge = when (choice.id) {
                         "low" -> "更快"
                         "medium" -> "推荐"
                         "high" -> "复杂任务"
                         "xhigh" -> "深度推理"
-                        else -> "最大预算"
+                        "max" -> "最大预算"
+                        else -> null
                     }
                 )
             },
-            selectedId = reasoningEffort,
+            selectedId = currentEffort?.id,
             onSelect = { onReasoningEffortChange(it.id); showEffortSheet = false },
             onDismiss = { showEffortSheet = false },
             searchEnabled = false,
@@ -1666,7 +1763,8 @@ private fun ChatToolsSheet(
     onReasoningClick: () -> Unit,
     onWebSearchToggle: (Boolean) -> Unit,
     onFileCreationToggle: (Boolean) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    reasoningSupported: Boolean = true
 ) {
     AsterOptionsSheet(
         title = "输入选项",
@@ -1679,7 +1777,14 @@ private fun ChatToolsSheet(
         }
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             ConversationSheetAction(Icons.Rounded.Hub, "模型", true, onModelClick, Modifier.weight(1f), "切换本轮使用的模型")
-            ConversationSheetAction(Icons.Rounded.Psychology, "思考", true, onReasoningClick, Modifier.weight(1f), "调整回答的思考强度")
+            ConversationSheetAction(
+                icon = Icons.Rounded.Psychology,
+                label = "思考",
+                enabled = reasoningSupported,
+                onClick = onReasoningClick,
+                modifier = Modifier.weight(1f),
+                detail = if (reasoningSupported) "调整回答的思考强度" else "当前模型不支持"
+            )
         }
         SkillPickerEntry(skillScope, enabled = canPickDocuments)
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1717,21 +1822,18 @@ private fun ComposerToolToggle(
     }
 }
 
-private val REASONING_OPTIONS = listOf(
-    "low" to "快速",
-    "medium" to "均衡",
-    "high" to "深入",
-    "xhigh" to "深度",
-    "max" to "极致"
-)
+/** 输入框上的短标签，两个汉字放得下。 */
+private fun compactEffortLabel(label: String): String = when (label) {
+    "模型默认" -> "默认"
+    "极简" -> "极简"
+    "快速" -> "快速"
+    "均衡" -> "均衡"
+    "深入" -> "深入"
+    "深度" -> "深度"
+    "极致" -> "极致"
+    "关闭" -> "关闭"
+    "开启" -> "开启"
+    else -> label.take(2)
+}
 
 private fun compactModelLabel(value: String): String = value.ifBlank { "选择模型" }
-
-private fun reasoningEffortDescription(value: String): String = when (value) {
-    "low" -> "优先响应速度"
-    "medium" -> "速度与质量平衡"
-    "high" -> "复杂问题更稳定"
-    "xhigh" -> "更长的推理过程"
-    "max" -> "最大推理预算"
-    else -> "速度与质量平衡"
-}
