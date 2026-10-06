@@ -137,6 +137,13 @@ private fun AsterApp(vm: MainViewModel, incomingMediaText: String?, onMediaTextC
         if (vm.notice == message) vm.dismissNotice()
     }
 
+    LaunchedEffect(vm.keyReentryWarning) {
+        val message = vm.keyReentryWarning ?: return@LaunchedEffect
+        snackbarHostState.currentSnackbarData?.dismiss()
+        snackbarHostState.showSnackbar(message = message, duration = SnackbarDuration.Long)
+        vm.consumeKeyReentryWarning()
+    }
+
     ModalNavigationDrawer(
         drawerState = drawerState,
         gesturesEnabled = page != AppPage.Settings || drawerState.isOpen,

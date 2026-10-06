@@ -68,6 +68,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val artworkSaveMutex = Mutex()
     private var conversationSaveRevision = 0L
     private var artworkSaveRevision = 0L
+    /** One-shot warning for API keys that could not be decrypted and must be filled in again. */
+    var keyReentryWarning by mutableStateOf<String?>(null)
+        private set
     @Volatile private var pendingStreamRecoveryClearId: Long? = null
     private val chatDrafts = linkedMapOf<String, String>()
     private var lastActiveChatKey = ChatSessionStore.NEW_CONVERSATION_KEY
@@ -128,6 +131,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         lastActiveChatKey = activeConversationId ?: ChatSessionStore.NEW_CONVERSATION_KEY
         chatInput = chatDrafts[lastActiveChatKey].orEmpty()
         images.addAll(artworkStore.load())
+        val undecryptableKeys = store.profilesWithUndecryptableKeys()
+        if (undecryptableKeys.isNotEmpty()) {
+            keyReentryWarning = "检测到 ${undecryptableKeys.size} 个 API 配置的密钥无法解密（重装应用或签名变化导致），请在设置中重新填写 API Key"
+        }
+    }
+
+    fun consumeKeyReentryWarning() {
+        keyReentryWarning = null
     }
 
     var drawPrompt by mutableStateOf("")
@@ -173,6 +184,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private set
 
     val profiles: List<ApiProfile> get() = appConfig.profiles
+
+    /** API profiles whose stored key could not be decrypted and must be filled in again. */
+    val profilesWithUndecryptableKeys: Set<String> get() = store.profilesWithUndecryptableKeys()
     val chatProfile: ApiProfile
         get() {
             val conversation = activeConversationId?.let { id -> conversations.firstOrNull { it.id == id } }
@@ -811,9 +825,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                     else -> {
+                        val protocol = if (profile.usesResponses(model)) "Responses" else "Chat Completions"
+                        val endpoint = if (profile.usesResponses(model)) profile.responsesPath else profile.chatPath
                         replaceMessage(assistantId) {
                             it.copy(
-                                content = friendlyError(error),
+                                content = friendlyError(error) + "\n\n[$model · $protocol · ${profile.baseUrl.trimEnd('/')}$endpoint]",
                                 isError = true,
                                 isStreaming = false,
                                 isInterrupted = false,
@@ -1766,7 +1782,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun friendlyError(error: Throwable): String {
         val raw = error.message.orEmpty()
-        return when {
+        val base = when {
             raw.contains("stream was reset", true) || raw.contains("ended before completion", true) -> "连接在首字返回前中断，已尝试重新建立连接"
             raw.contains("failed to connect", true) -> "无法连接服务器，请检查网络、URL 与服务是否已启动"
             raw.contains("timeout", true) || raw.contains("timed out", true) -> "连接超时，请检查网络或稍后重试"
@@ -1774,6 +1790,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             raw.contains("certificate", true) || raw.contains("ssl", true) -> "TLS 证书验证失败，请检查 HTTPS 配置"
             raw.isNotBlank() -> raw
             else -> "发生未知错误，请检查 API 配置"
+        }
+        return if (chatProfile.id in profilesWithUndecryptableKeys) {
+            "$base\n\n该 API 配置的密钥在重装应用或签名变化后已无法解密，请在设置中重新填写 API Key。"
+        } else {
+            base
         }
     }
 

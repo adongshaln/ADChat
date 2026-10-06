@@ -76,6 +76,7 @@ fun SettingsScreen(vm: MainViewModel, onOpenDrawer: () -> Unit) {
             models = vm.modelsFor(editing!!.id),
             state = vm.connectionFor(editing!!.id),
             searchBackendConfigured = vm.searchProfile.searchModel.isNotBlank(),
+            keyNeedsReentry = editing!!.id in vm.profilesWithUndecryptableKeys,
             onBack = {
                 editing?.id?.let(vm::discardProfileDraft)
                 editing = null
@@ -636,6 +637,7 @@ private fun ProfileEditor(
     models: List<ApiModel>,
     state: ConnectionUiState,
     searchBackendConfigured: Boolean,
+    keyNeedsReentry: Boolean,
     onBack: () -> Unit,
     onTest: (ApiProfile, (ApiProfile) -> Unit) -> Unit,
     onSave: (ApiProfile) -> Unit
@@ -702,12 +704,18 @@ private fun ProfileEditor(
                             value = draft.apiKey,
                             onValueChange = { draft = draft.copy(apiKey = it, cachedModels = emptyList(), lastLatencyMs = null) },
                             modifier = Modifier.fillMaxWidth(),
-                            placeholder = { Text("可留空用于本地服务") },
+                            placeholder = { Text(if (keyNeedsReentry) "密钥已丢失，请重新填写" else "可留空用于本地服务") },
                             leadingIcon = { Icon(Icons.Outlined.Key, null) },
                             trailingIcon = { IconButton(onClick = { keyVisible = !keyVisible }) { Icon(if (keyVisible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (keyVisible) "隐藏密钥" else "显示密钥") } },
                             visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                             singleLine = true, shape = RoundedCornerShape(15.dp), colors = editorFieldColors()
                         )
+                        if (keyNeedsReentry) {
+                            Text(
+                                "此配置的密钥在重装应用或签名变化后已无法解密，原密钥无法恢复，请重新填写后保存。",
+                                color = Danger, style = MaterialTheme.typography.bodySmall
+                            )
+                        }
                     }
                 }
             }

@@ -101,8 +101,10 @@ class ConfigStore(context: Context) {
     fun load(): AppConfig {
         prefs.getString("appConfigV2", null)?.let { json ->
             runCatching {
-                val config = decode(JSONObject(json))
+                val root = JSONObject(json)
+                val config = decode(root)
                 val migrated = config.copy(systemPrompt = migrateSystemPrompt(config.systemPrompt))
+                recordUndecryptableKeys(root, migrated)
                 if (migrated != config || (config.profiles.any { it.apiKey.isNotBlank() } && !json.contains("enc:v1:"))) {
                     save(migrated)
                 }
@@ -114,6 +116,31 @@ class ConfigStore(context: Context) {
 
     fun save(config: AppConfig) {
         prefs.edit().putString("appConfigV2", encode(config).toString()).apply()
+        clearResolvedKeyReentries(config)
+    }
+
+    /**
+     * Profiles whose stored key could not be decrypted, e.g. after a reinstall or a
+     * signature change wiped the Keystore key. The key is blank in memory, so every
+     * request fails authentication unless the user is told to fill it in again.
+     */
+    fun profilesWithUndecryptableKeys(): Set<String> =
+        prefs.getStringSet(KEY_REENTRY_IDS, emptySet()).orEmpty().toSet()
+
+    private fun recordUndecryptableKeys(root: JSONObject, config: AppConfig) {
+        runCatching {
+            prefs.edit().putStringSet(KEY_REENTRY_IDS, undecryptableKeyProfileIds(root, config)).apply()
+        }
+    }
+
+    private fun clearResolvedKeyReentries(config: AppConfig) {
+        runCatching {
+            val pending = profilesWithUndecryptableKeys()
+            val resolved = pending.filterNot { id ->
+                config.profiles.firstOrNull { it.id == id }?.apiKey?.isNotBlank() == true
+            }.toSet()
+            if (resolved != pending) prefs.edit().putStringSet(KEY_REENTRY_IDS, resolved).apply()
+        }
     }
 
     private fun migrateLegacy(): AppConfig {
@@ -284,11 +311,29 @@ class ConfigStore(context: Context) {
 
     private companion object {
         const val KEY_ALIAS = "adchat_api_config_key_v1"
+        const val KEY_REENTRY_IDS = "apiKeyReentryProfileIds"
     }    private fun decodeModels(array: JSONArray?): List<ApiModel> = buildList {
         if (array == null) return@buildList
         for (index in 0 until array.length()) {
             val item = array.optJSONObject(index) ?: continue
             item.optString("id").takeIf { it.isNotBlank() }?.let { add(ApiModel(it, item.optString("ownedBy"))) }
+        }
+    }
+}
+
+/**
+ * Pure part of the key-reentry bookkeeping: profiles whose stored ciphertext exists
+ * but decrypted to a blank key, which means the Keystore key is gone and the user
+ * has to fill the API key in again.
+ */
+internal fun undecryptableKeyProfileIds(storedRoot: JSONObject, config: AppConfig): Set<String> {
+    val array = storedRoot.optJSONArray("profiles") ?: return emptySet()
+    return buildSet {
+        for (index in 0 until array.length()) {
+            val item = array.optJSONObject(index) ?: continue
+            if (!item.optString("apiKey").startsWith("enc:v1:")) continue
+            val id = item.optString("id")
+            if (id.isNotBlank() && config.profiles.firstOrNull { it.id == id }?.apiKey?.isBlank() == true) add(id)
         }
     }
 }
