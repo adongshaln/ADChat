@@ -13,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -82,6 +84,8 @@ fun ComposerReasoningButton(
 /**
  * 上下文详情：本次请求预计占用、预算构成、模型实际用量，并可直接改上下文长度。
  * [onCustomize] 打开精确数值对话框，[onReset] 恢复默认（不设上限时的服务端行为）。
+ *
+ * 点选窗口档位由调用方负责立即生效并收起面板，这里只负责把选中态如实反映出来。
  */
 @Composable
 fun ComposerContextSheet(
@@ -113,17 +117,11 @@ fun ComposerContextSheet(
         Surface(color = Surface, shape = RoundedCornerShape(18.dp), modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            if (budget > 0) "$totalTokens / $budget Token" else "$totalTokens Token（未设预算）",
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        Text(
-                            if (overflow) "已超出输入预算，最早的历史会被整轮省略" else "本次请求预计占用",
-                            color = if (overflow) Danger else MutedInk,
-                            style = MaterialTheme.typography.labelMedium
-                        )
-                    }
+                    Text(
+                        if (budget > 0) "$totalTokens / $budget" else "$totalTokens",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.weight(1f)
+                    )
                     Text(
                         if (budget > 0) "${(progress * 100).toInt()}%" else "--",
                         color = if (overflow) Danger else Accent,
@@ -137,25 +135,22 @@ fun ComposerContextSheet(
                     trackColor = Hairline.copy(alpha = .5f)
                 )
                 Text(
-                    if (limits == null) {
-                        "还没有为这个模型设置上下文长度，客户端不会做本地预算控制"
-                    } else {
-                        "窗口 ${ContextWindowPresets.label(limits.windowTokens)} · 输出上限 ${limits.outputTokens} · 安全余量 ${limits.safetyTokens}"
-                    },
+                    if (limits == null) "未设上下文长度" else
+                        "窗口 ${ContextWindowPresets.label(limits.windowTokens)} · 输出上限 ${limits.outputTokens} · 余量 ${limits.safetyTokens}",
                     color = MutedInk,
                     style = MaterialTheme.typography.labelMedium
                 )
             }
         }
 
-        Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             ContextBreakLine("系统提示词", systemTokens)
-            ContextBreakLine("对话历史与工具记录", historyTokens)
-            ContextBreakLine("图片附件", attachmentTokens, hint = "每张约 4K")
-            ContextBreakLine("请求开销", overheadTokens, hint = "协议与工具定义")
+            ContextBreakLine("对话历史", historyTokens)
+            ContextBreakLine("图片附件", attachmentTokens)
+            ContextBreakLine("请求开销", overheadTokens)
             if (omittedTurns > 0) {
                 Text(
-                    "为塞进预算，已省略最早 $omittedTurns 轮对话；本地记录仍保留",
+                    "已省略最早 $omittedTurns 轮",
                     color = Danger,
                     style = MaterialTheme.typography.labelMedium
                 )
@@ -163,24 +158,14 @@ fun ComposerContextSheet(
         }
 
         if (lastRequestInputTokens > 0 || lastRequestOutputTokens > 0) {
-            Surface(color = Canvas, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
-                Column(Modifier.padding(horizontal = 13.dp, vertical = 11.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("上一次请求（供应商回传）", color = MutedInk, style = MaterialTheme.typography.labelMedium)
-                    Text(
-                        "输入 $lastRequestInputTokens · 输出 $lastRequestOutputTokens" +
-                            if (lastRequestReasoningTokens > 0) "（含推理 $lastRequestReasoningTokens）" else "",
-                        style = MaterialTheme.typography.bodyMedium
-                    )
-                }
-            }
+            Text(
+                "上次请求 输入 $lastRequestInputTokens · 输出 $lastRequestOutputTokens" +
+                    if (lastRequestReasoningTokens > 0) " · 含推理 $lastRequestReasoningTokens" else "",
+                color = MutedInk,
+                style = MaterialTheme.typography.bodyMedium
+            )
         }
 
-        Text("上下文长度", style = MaterialTheme.typography.titleSmall)
-        Text(
-            "按这个模型实际可用的窗口设置；只影响客户端预算与 max_tokens，不会改变服务端真实容量。",
-            color = MutedInk,
-            style = MaterialTheme.typography.labelMedium
-        )
         ModelContextPresetsInline(
             limits = limits,
             onSelect = onSelectWindow
@@ -199,11 +184,15 @@ fun ComposerContextSheet(
 /** 面板里直接铺开四档窗口，不用再点一层展开。 */
 @Composable
 private fun ModelContextPresetsInline(limits: ModelContextLimits?, onSelect: (Int) -> Unit) {
+    val haptics = LocalHapticFeedback.current
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         ContextWindowPresets.values.forEach { (window, label) ->
             val selected = limits?.windowTokens == window
             Surface(
-                onClick = { onSelect(window) },
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    onSelect(window)
+                },
                 color = if (selected) AccentSoft else Canvas,
                 contentColor = if (selected) Accent else Ink,
                 shape = RoundedCornerShape(14.dp),
@@ -220,12 +209,6 @@ private fun ModelContextPresetsInline(limits: ModelContextLimits?, onSelect: (In
                     Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
                     if (selected) {
                         Text("当前", color = Accent, style = MaterialTheme.typography.labelMedium)
-                    } else {
-                        Text(
-                            ContextWindowPresets.label(window),
-                            color = MutedInk,
-                            style = MaterialTheme.typography.labelMedium
-                        )
                     }
                 }
             }
@@ -234,11 +217,11 @@ private fun ModelContextPresetsInline(limits: ModelContextLimits?, onSelect: (In
 }
 
 @Composable
-private fun ContextBreakLine(label: String, tokens: Int, hint: String? = null) {
+private fun ContextBreakLine(label: String, tokens: Int) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
         Text(label, color = MutedInk, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
         Text(
-            if (hint == null) "$tokens" else "$tokens · $hint",
+            "$tokens",
             color = if (tokens > 0) Ink else MutedInk,
             style = MaterialTheme.typography.bodyMedium
         )

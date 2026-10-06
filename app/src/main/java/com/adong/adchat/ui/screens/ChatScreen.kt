@@ -115,15 +115,22 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
     var showSwitcher by remember { mutableStateOf(false) }
     var showContextDialog by remember { mutableStateOf(false) }
     val contextModel = vm.chatProfile.chatModel
-    // 估算要走整段历史，放在后台算，避免每次重组都卡一帧。
-    val contextUsage by produceState<ContextUsage?>(
-        initialValue = null,
+    val contextLimits = vm.chatProfile.modelContexts[contextModel.trim()]
+    // 估算要走整段历史，放在后台算，避免每次重组都卡一帧；初值不为空，点进度圈立刻有反应；
+    // 改完上下文长度也要立刻重算。
+    val contextUsage by produceState(
+        initialValue = ContextUsage(
+            model = contextModel, limits = contextLimits, systemTokens = 0, historyTokens = 0,
+            attachmentTokens = 0, overheadTokens = 0, omittedTurns = 0,
+            lastRequestInputTokens = 0, lastRequestOutputTokens = 0, lastRequestReasoningTokens = 0
+        ),
         vm.messages.size,
         vm.messages.lastOrNull()?.content?.length ?: 0,
         contextModel,
         vm.chatInput,
         vm.chatAttachments.size,
-        vm.appConfig.systemPrompt
+        vm.appConfig.systemPrompt,
+        contextLimits
     ) {
         value = withContext(Dispatchers.Default) {
             vm.contextUsage(vm.chatInput, vm.chatAttachments.toList())
@@ -1599,7 +1606,7 @@ private fun ChatComposer(
     onSend: () -> Unit,
     onStop: () -> Unit,
     onFocusChange: (Boolean) -> Unit,
-    contextUsage: ContextUsage?,
+    contextUsage: ContextUsage,
     onSelectContextWindow: (Int) -> Unit,
     onCustomizeContext: () -> Unit,
     onResetContext: () -> Unit,
@@ -1618,9 +1625,9 @@ private fun ChatComposer(
         focusRequester = focusRequester, modifier = modifier,
         contextAction = {
             ComposerContextRing(
-                percent = contextUsage?.percent ?: 0,
-                configured = contextUsage?.configured == true,
-                overflow = contextUsage?.overflow == true,
+                percent = contextUsage.percent,
+                configured = contextUsage.configured,
+                overflow = contextUsage.overflow,
                 onClick = {
                     focus.clearFocus()
                     showContextSheet = true
@@ -1687,7 +1694,7 @@ private fun ChatComposer(
             onDismiss = { showToolsSheet = false }
         )
     }
-    if (showContextSheet && contextUsage != null) {
+    if (showContextSheet) {
         ComposerContextSheet(
             model = contextUsage.model,
             limits = contextUsage.limits,
@@ -1700,9 +1707,18 @@ private fun ChatComposer(
             lastRequestInputTokens = contextUsage.lastRequestInputTokens,
             lastRequestOutputTokens = contextUsage.lastRequestOutputTokens,
             lastRequestReasoningTokens = contextUsage.lastRequestReasoningTokens,
-            onSelectWindow = onSelectContextWindow,
+            onSelectWindow = { window ->
+                // 立刻收起面板：用户回到输入框就能看到进度圈变化，同时提示条也能露出来。
+                focus.clearFocus()
+                showContextSheet = false
+                onSelectContextWindow(window)
+            },
             onCustomize = { showContextSheet = false; onCustomizeContext() },
-            onReset = onResetContext,
+            onReset = {
+                focus.clearFocus()
+                showContextSheet = false
+                onResetContext()
+            },
             onDismiss = { showContextSheet = false }
         )
     }
