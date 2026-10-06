@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.adong.adchat.data.ContextWindowPresets
 import com.adong.adchat.data.ModelContextLimits
+import com.adong.adchat.ui.theme.*
 
 /**
  * 输入框左侧的上下文进度圈。外圈实时反映本次请求预计占用的输入预算，
