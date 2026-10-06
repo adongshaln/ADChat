@@ -73,12 +73,14 @@ class ReasoningPolicyTest {
         assertEquals("enabled", thinking.getString("type"))
         assertEquals(8192 - 1024, thinking.getInt("budget_tokens"))
 
-        val tiny = JSONObject()
-        ReasoningPolicy.write(tiny, "claude-sonnet-4.5", "high", responsesApi = false, outputTokenLimit = 1536)
-        assertEquals(1024, tiny.getJSONObject("thinking").getInt("budget_tokens"))
+        // 输出上限收紧到 3072 时，思考预算跟着收紧，始终给正文留出至少 1024。
+        val tight = JSONObject()
+        ReasoningPolicy.write(tight, "claude-sonnet-4.5", "high", responsesApi = false, outputTokenLimit = 3072)
+        assertEquals(3072 - 1024, tight.getJSONObject("thinking").getInt("budget_tokens"))
 
+        // 只剩 1536 时，任何 ≥1024 的思考预算都会挤掉正文；显式关闭也好过发出去撞 400。
         val impossible = JSONObject()
-        ReasoningPolicy.write(impossible, "claude-sonnet-4.5", "high", responsesApi = false, outputTokenLimit = 1024)
+        ReasoningPolicy.write(impossible, "claude-sonnet-4.5", "high", responsesApi = false, outputTokenLimit = 1536)
         assertEquals("disabled", impossible.getJSONObject("thinking").getString("type"))
 
         // 未设置上下文长度时不知道 max_tokens，既不发 budget 也不擅自关掉服务端默认。

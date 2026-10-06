@@ -112,15 +112,18 @@ class ReasoningRequestFieldTest {
         val server = MockWebServer()
         server.start()
         try {
-            server.enqueue(sse(
-                "data: {\"choices\":[{\"delta\":{\"content\":\"好\"}}]}\n\n" +
-                    "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n" +
-                    "data: [DONE]\n\n"
-            ))
-            server.enqueue(sse(
-                "data: {\"type\":\"response.output_text.delta\",\"delta\":\"好\"}\n\n" +
-                    "data: {\"type\":\"response.completed\",\"response\":{\"usage\":{}}}\n\n"
-            ))
+            // MockWebServer 只按顺序回包，不认路径；先确定协议，只排对应格式的那一份。
+            val responsesApi = ApiProfile(chatModel = model).usesResponses()
+            server.enqueue(
+                if (responsesApi) sse(
+                    "data: {\"type\":\"response.output_text.delta\",\"delta\":\"好\"}\n\n" +
+                        "data: {\"type\":\"response.completed\",\"response\":{\"usage\":{}}}\n\n"
+                ) else sse(
+                    "data: {\"choices\":[{\"delta\":{\"content\":\"好\"}}]}\n\n" +
+                        "data: {\"choices\":[{\"delta\":{},\"finish_reason\":\"stop\"}]}\n\n" +
+                        "data: [DONE]\n\n"
+                )
+            )
             val profile = ApiProfile(
                 baseUrl = server.url("/").toString(),
                 apiKey = "test",
@@ -133,17 +136,14 @@ class ReasoningRequestFieldTest {
                 generationOptions = generationOptions
             ) {}
             assertEquals("好", result.text)
-            return JSONObject(recordedBody(server, profile.usesResponses(model)))
+            return JSONObject(recordedBody(server, responsesApi))
         } finally { server.shutdown() }
     }
 
     private fun recordedBody(server: MockWebServer, responsesApi: Boolean): String {
-        val path = if (responsesApi) "/v1/responses" else "/v1/chat/completions"
-        repeat(server.requestCount) {
-            val request = server.takeRequest(2, TimeUnit.SECONDS) ?: return ""
-            if (request.path == path) return request.body.readUtf8()
-        }
-        return ""
+        val request = server.takeRequest(2, TimeUnit.SECONDS) ?: return ""
+        check(request.path == (if (responsesApi) "/v1/responses" else "/v1/chat/completions"))
+        return request.body.readUtf8()
     }
 
     private fun sse(body: String): MockResponse = MockResponse()
