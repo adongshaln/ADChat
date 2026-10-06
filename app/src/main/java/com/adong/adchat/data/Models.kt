@@ -346,6 +346,7 @@ data class ChatCompletionResult(
     val citations: List<ChatCitation> = emptyList(),
     val generatedFiles: List<GeneratedFileDraft> = emptyList(),
     val toolActivities: List<ChatToolActivity> = emptyList(),
+    val reasoning: String = "",
     val outputComplete: Boolean = true
 )
 
@@ -381,6 +382,7 @@ data class ChatMessage(
     val role: String,
     val content: String,
     val attachments: List<ChatImageAttachment> = emptyList(),
+    val reasoning: String = "",
     val isError: Boolean = false,
     val isStreaming: Boolean = false,
     val isInterrupted: Boolean = false,

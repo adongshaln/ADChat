@@ -308,6 +308,74 @@ fun ConversationThinkingIndicator() {
     }
 }
 
+/**
+ * 模型的思考过程。推理模型在给出正文前常有数十秒静默，单独展示思考流，
+ * 用户才知道它是在推进而不是卡死。
+ */
+@Composable
+fun ConversationReasoningPanel(
+    reasoning: String,
+    streaming: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (reasoning.isBlank()) return
+    var expanded by remember { mutableStateOf(true) }
+    val scrollState = rememberScrollState()
+    if (streaming && expanded) {
+        LaunchedEffect(reasoning.length) { scrollState.scrollTo(scrollState.maxValue) }
+    }
+    Surface(
+        onClick = { expanded = !expanded },
+        color = SurfaceInset.copy(alpha = .7f),
+        contentColor = Ink,
+        shape = RoundedCornerShape(13.dp),
+        modifier = modifier.fillMaxWidth().padding(bottom = 10.dp).animateContentSize(tween(180))
+    ) {
+        Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (streaming) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        color = Accent,
+                        trackColor = Accent.copy(alpha = .16f),
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Icon(Icons.Rounded.Psychology, null, Modifier.size(17.dp), tint = MutedInk)
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    if (streaming) "正在思考…" else "思考过程",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MutedInk,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    "${reasoning.length} 字",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MutedInk.copy(alpha = .7f)
+                )
+                Spacer(Modifier.width(4.dp))
+                Icon(
+                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                    null,
+                    Modifier.size(18.dp),
+                    tint = MutedInk
+                )
+            }
+            AnimatedVisibility(expanded) {
+                Text(
+                    reasoning,
+                    Modifier.padding(top = 8.dp).heightIn(max = 240.dp).verticalScroll(scrollState),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MutedInk,
+                    lineHeight = 19.sp
+                )
+            }
+        }
+    }
+}
+
 @Composable
 fun ConversationMessageAction(
     icon: androidx.compose.ui.graphics.vector.ImageVector,

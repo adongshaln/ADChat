@@ -435,10 +435,11 @@ private fun ChatMessageItem(
                 if (!waitingForFirstToken) {
                     ConversationAuthor(error = message.isError)
                 }
+                ConversationReasoningPanel(reasoning = message.reasoning, streaming = message.isStreaming)
                 if (message.toolActivities.isNotEmpty()) {
                     ToolActivitySummary(message.toolActivities)
                 }
-                if (waitingForFirstToken) {
+                if (waitingForFirstToken && message.reasoning.isBlank()) {
                     ConversationThinkingIndicator()
                 } else {
                     RichMessageText(

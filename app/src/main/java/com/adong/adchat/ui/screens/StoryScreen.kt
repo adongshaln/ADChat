@@ -1216,12 +1216,20 @@ private fun StoryWorkspaceContent(
                                         with(composerDensity) { (composerHeight + 12.dp).toPx() })
                                 }
                             }
-                        }
+                        },
+                        reasoning = if (assistant && row.revision.state == StoryRevisionState.Streaming) {
+                            storyVm.reasoning(workspace)
+                        } else ""
                     )
                 }
                 if (hasStandaloneThinking) {
                     item(key = "story-thinking-${workspace.name}") {
-                        ConversationThinkingIndicator()
+                        val standaloneReasoning = storyVm.reasoning(workspace)
+                        if (standaloneReasoning.isNotBlank()) {
+                            ConversationReasoningPanel(reasoning = standaloneReasoning, streaming = true)
+                        } else {
+                            ConversationThinkingIndicator()
+                        }
                     }
                 }
                 item(key = "story-bottom-spacer") { Spacer(Modifier.height(4.dp)) }
@@ -1293,6 +1301,7 @@ internal fun StoryMessageItem(
     onOpenPendingCandidates: () -> Unit,
     onOpenRevision: () -> Unit,
     onDetailsExpanded: (String) -> Unit,
+    reasoning: String = "",
     onDelete: (() -> Unit)? = null
 ) {
     val user = row.message.role == "user"
@@ -1332,7 +1341,11 @@ internal fun StoryMessageItem(
                 if (!waitingForFirstToken) {
                     ConversationAuthor()
                 }
-                if (waitingForFirstToken) {
+                ConversationReasoningPanel(
+                    reasoning = reasoning,
+                    streaming = row.revision.state == StoryRevisionState.Streaming
+                )
+                if (waitingForFirstToken && reasoning.isBlank()) {
                     ConversationThinkingIndicator()
                 } else if (prose != null) {
                     com.adong.adchat.ui.components.StoryProseContent(prose, row.revision.state == StoryRevisionState.Streaming)

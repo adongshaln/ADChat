@@ -89,6 +89,7 @@ class ConversationStore(context: Context) {
                     id = message.optLong("id", System.nanoTime()),
                     role = message.optString("role"),
                     content = message.optString("content"),
+                    reasoning = message.optString("reasoning"),
                     attachments = decodeAttachments(message.optJSONArray("attachments")),
                     isError = message.optBoolean("isError"),
                     isStreaming = false,
@@ -135,6 +136,7 @@ class ConversationStore(context: Context) {
                     .put("id", message.id)
                     .put("role", message.role)
                     .put("content", message.content)
+                    .put("reasoning", message.reasoning)
                     .put("attachments", encodeAttachments(message.attachments))
                     .put("isError", message.isError)
                     .put("isInterrupted", message.isInterrupted)

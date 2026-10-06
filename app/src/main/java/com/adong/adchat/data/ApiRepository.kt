@@ -102,6 +102,7 @@ class ApiRepository internal constructor(
         onContextTrim: suspend (Int) -> Unit = {},
         onRecovery: suspend (StreamRecoveryEvent) -> Unit = {},
         onToolActivity: suspend (ChatToolActivity) -> Unit = {},
+        onReasoning: suspend (String) -> Unit = {},
         onDelta: suspend (String) -> Unit
     ): ChatCompletionResult = withContext(Dispatchers.IO) {
         validateProfile(profile)
@@ -178,6 +179,7 @@ class ApiRepository internal constructor(
                     nativeSkillReference = nativeSkillReference,
                     generationOptions = requestGenerationOptions,
                     onToolActivity = onToolActivity,
+                    onReasoning = onReasoning,
                     onDelta = deltaSink
                 )
             } else {
@@ -188,6 +190,7 @@ class ApiRepository internal constructor(
                     searchBackend = searchBackend.takeIf { delegatedSearchEnabled },
                     generationOptions = requestGenerationOptions,
                     onToolActivity = onToolActivity,
+                    onReasoning = onReasoning,
                     onDelta = deltaSink
                 )
             }
@@ -294,6 +297,7 @@ class ApiRepository internal constructor(
         searchBackend: SearchBackendConfig?,
         generationOptions: ChatGenerationOptions,
         onToolActivity: suspend (ChatToolActivity) -> Unit,
+        onReasoning: suspend (String) -> Unit,
         onDelta: suspend (String) -> Unit
     ): ChatCompletionResult {
         val skillLoadingEnabled = skillSelectors.isNotEmpty()
@@ -318,6 +322,7 @@ class ApiRepository internal constructor(
         var firstDeltaAt: Long? = null
         var usage = TokenUsage()
         val full = StringBuilder()
+        val reasoningTotal = StringBuilder()
         var outputComplete = false
         val generatedFiles = mutableListOf<GeneratedFileDraft>()
         val citations = linkedMapOf<String, ChatCitation>()
@@ -326,6 +331,13 @@ class ApiRepository internal constructor(
         suspend fun recordActivity(activity: ChatToolActivity) {
             activities[activity.id] = activity
             onToolActivity(activity)
+        }
+
+        /** 思考内容单独累计，绝不混入正文；没有增量时保持静默避免打扰。 */
+        suspend fun emitReasoning(text: String) {
+            if (text.isBlank()) return
+            reasoningTotal.append(text)
+            onReasoning(text)
         }
 
         suspend fun executeRound(forceSkill: Boolean, forceNoTools: Boolean): ProtocolRoundResult {
@@ -401,6 +413,7 @@ class ApiRepository internal constructor(
                                 full.append(delta)
                                 onDelta(delta)
                             }
+                            emitReasoning(parseReasoningDelta(root))
                             true
                         }
                         if (!completed) throw IOException("Streaming connection ended before completion")
@@ -416,6 +429,7 @@ class ApiRepository internal constructor(
                             if (firstDeltaAt == null) firstDeltaAt = System.nanoTime()
                             roundText.append(result); full.append(result); onDelta(result)
                         }
+                        emitReasoning(parseReasoningDelta(root))
                         roundUsage = parseUsage(root)
                     }
                 }
@@ -540,6 +554,7 @@ class ApiRepository internal constructor(
         }
         return ChatCompletionResult(
             text = resultText,
+            reasoning = reasoningTotal.toString(),
             usage = finalUsage,
             citations = citations.values.toList(),
             generatedFiles = generatedFiles,
@@ -560,6 +575,7 @@ class ApiRepository internal constructor(
         nativeSkillReference: NativeSkillReference?,
         generationOptions: ChatGenerationOptions,
         onToolActivity: suspend (ChatToolActivity) -> Unit,
+        onReasoning: suspend (String) -> Unit,
         onDelta: suspend (String) -> Unit
     ): ChatCompletionResult {
         val skillLoadingEnabled = skillSelectors.isNotEmpty()
@@ -575,6 +591,7 @@ class ApiRepository internal constructor(
         var firstDeltaAt: Long? = null
         var usage = TokenUsage()
         val full = StringBuilder()
+        val reasoningTotal = StringBuilder()
         var outputComplete = false
         val generatedFiles = mutableListOf<GeneratedFileDraft>()
         val citations = linkedMapOf<String, ChatCitation>()
@@ -588,6 +605,13 @@ class ApiRepository internal constructor(
         suspend fun recordActivity(activity: ChatToolActivity) {
             activities[activity.id] = activity
             onToolActivity(activity)
+        }
+
+        /** 思考内容单独累计，绝不混入正文；没有增量时保持静默避免打扰。 */
+        suspend fun emitReasoning(text: String) {
+            if (text.isBlank()) return
+            reasoningTotal.append(text)
+            onReasoning(text)
         }
 
         var carriedContextTokens = 0L
@@ -655,6 +679,10 @@ class ApiRepository internal constructor(
                                         roundText.append(delta); full.append(delta); onDelta(delta)
                                     }
                                 }
+                                // 思考增量：官方为 response.reasoning_summary_text.delta，
+                                // 部分兼容网关用 response.reasoning_text.delta 或自定义 reasoning.*.delta。
+                                "response.reasoning_summary_text.delta", "response.reasoning_text.delta" ->
+                                    emitReasoning(root.optString("delta").ifBlank { reasoningEventText(root) })
                                 "response.web_search_call.in_progress", "response.web_search_call.searching" -> {
                                     usedWebSearch = true
                                     recordActivity(ChatToolActivity("web_search", WEB_SEARCH_TOOL, "正在搜索网页", TOOL_STATUS_RUNNING))
@@ -673,6 +701,12 @@ class ApiRepository internal constructor(
                                 }
                                 "response.failed", "response.incomplete" -> throw IllegalStateException(root.optJSONObject("response")?.optJSONObject("error")?.optString("message").orEmpty().ifBlank { "Responses API failed" })
                                 "error" -> throw IllegalStateException(root.optString("message").ifBlank { "Responses API failed" })
+                                else -> {
+                                    val type = root.optString("type")
+                                    if (type.contains("reasoning", ignoreCase = true) && type.endsWith(".delta")) {
+                                        emitReasoning(reasoningEventText(root))
+                                    }
+                                }
                             }
                             !completed
                         }
@@ -691,6 +725,7 @@ class ApiRepository internal constructor(
                             if (firstDeltaAt == null) firstDeltaAt = System.nanoTime()
                             roundText.append(result); full.append(result); onDelta(result)
                         }
+                        emitReasoning(parseResponsesReasoning(root))
                         roundUsage = parseUsage(root)
                     }
                 }
@@ -772,6 +807,7 @@ class ApiRepository internal constructor(
         }
         return ChatCompletionResult(
             text = resultText,
+            reasoning = reasoningTotal.toString(),
             usage = finalUsage,
             citations = citations.values.toList(),
             generatedFiles = generatedFiles,
@@ -1213,6 +1249,48 @@ $query"""
             else -> choice?.optString("text").orEmpty()
         }
     }.getOrDefault("")
+
+    /**
+     * 推理模型的思考增量。各服务端字段不一：DeepSeek 系用 reasoning_content，
+     * 部分网关用 reasoning（字符串或含 content/text 的对象），非流式响应放在 message 上。
+     */
+    private fun parseReasoningDelta(root: JSONObject): String = runCatching {
+        val choice = root.optJSONArray("choices")?.optJSONObject(0) ?: return@runCatching ""
+        val delta = choice.optJSONObject("delta")
+        val fields = listOfNotNull(delta, choice.optJSONObject("message"))
+        val raw = fields.firstNotNullOfOrNull { source ->
+            when (val value = source.opt("reasoning_content") ?: source.opt("reasoning")) {
+                is String -> value
+                is JSONObject -> value.optString("content").ifBlank { value.optString("text") }
+                else -> null
+            }
+        }.orEmpty()
+        raw
+    }.getOrDefault("")
+
+    /** 兼容网关把思考文本放在 text 字段或 delta 对象内。 */
+    private fun reasoningEventText(root: JSONObject): String {
+        root.optString("delta").takeIf { it.isNotBlank() }?.let { return it }
+        root.optString("text").takeIf { it.isNotBlank() }?.let { return it }
+        return root.optJSONObject("delta")?.optString("text").orEmpty()
+    }
+
+    /** 非流式 Responses：从 output 里 type=reasoning 的 item 提取思考摘要。 */
+    private fun parseResponsesReasoning(root: JSONObject): String {
+        val output = root.optJSONArray("output") ?: return ""
+        return buildString {
+            for (index in 0 until output.length()) {
+                val item = output.optJSONObject(index) ?: continue
+                if (!item.optString("type").equals("reasoning", ignoreCase = true)) continue
+                item.optJSONArray("summary")?.let { summary ->
+                    for (i in 0 until summary.length()) append(summary.optJSONObject(i)?.optString("text").orEmpty())
+                }
+                item.optJSONArray("content")?.let { content ->
+                    for (i in 0 until content.length()) append(content.optJSONObject(i)?.optString("text").orEmpty())
+                }
+            }
+        }.toString()
+    }
 
     private fun parseMessageContent(root: JSONObject): String {
         val content = root.optJSONArray("choices")?.optJSONObject(0)?.optJSONObject("message")?.opt("content")

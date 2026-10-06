@@ -679,8 +679,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         chatStopRequested = false
         chatJob = viewModelScope.launch {
             val streamed = StringBuilder()
+            val reasoned = StringBuilder()
             var lastUiPushAt = 0L
             var lastRecoveryAt = 0L
+            var lastReasoningPushAt = 0L
             var automaticRecoveryCount = 0
             try {
                 val requestHistory = withContext(Dispatchers.IO) { prepareChatHistory(history) }
@@ -712,6 +714,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                 message.copy(toolActivities = activities)
                             }
                         }
+                    },
+                    onReasoning = { chunk ->
+                        reasoned.append(chunk)
+                        val now = SystemClock.elapsedRealtime()
+                        if (lastReasoningPushAt == 0L || now - lastReasoningPushAt >= REASONING_UI_INTERVAL_MS) {
+                            lastReasoningPushAt = now
+                            val snapshot = reasoned.toString()
+                            withContext(Dispatchers.Main.immediate) {
+                                replaceMessage(assistantId) { it.copy(reasoning = snapshot, isStreaming = true) }
+                            }
+                        }
                     }
                 ) { delta ->
                     streamed.append(delta)
@@ -736,6 +749,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                     title = recoveryTitle,
                                     messages = history + streamingMessage.copy(
                                         content = snapshot,
+                                        reasoning = reasoned.toString(),
                                         isStreaming = false,
                                         isInterrupted = true,
                                         isRecovering = false,
@@ -753,6 +767,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 replaceMessage(assistantId) {
                     it.copy(
                         content = result.text,
+                        // 续传场景下 result.reasoning 只含续传部分，保留界面上较长的那份思考记录。
+                        reasoning = if (result.reasoning.length > it.reasoning.length) result.reasoning else it.reasoning,
                         isStreaming = false,
                         isInterrupted = false,
                         isStopped = false,
@@ -768,9 +784,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (error: Throwable) {
                 val partial = streamed.toString().trimEnd()
+                val reasonedText = reasoned.toString().trimEnd()
                 when {
                     chatStopRequested -> {
-                        if (partial.isBlank()) {
+                        if (partial.isBlank() && reasonedText.isBlank()) {
                             messages.indexOfFirst { it.id == assistantId }
                                 .takeIf { it >= 0 }
                                 ?.let(messages::removeAt)
@@ -779,6 +796,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             replaceMessage(assistantId) {
                                 it.copy(
                                     content = partial,
+                                    reasoning = reasonedText.ifBlank { it.reasoning },
                                     isError = false,
                                     isStreaming = false,
                                     isInterrupted = false,
@@ -791,10 +809,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         }
                     }
                     error is CancellationException -> {
-                        if (partial.isNotBlank()) {
+                        if (partial.isNotBlank() || reasonedText.isNotBlank()) {
                             replaceMessage(assistantId) {
                                 it.copy(
                                     content = partial,
+                                    reasoning = reasonedText.ifBlank { it.reasoning },
                                     isError = false,
                                     isStreaming = false,
                                     isInterrupted = true,
@@ -810,6 +829,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         replaceMessage(assistantId) {
                             it.copy(
                                 content = partial,
+                                reasoning = reasonedText.ifBlank { it.reasoning },
                                 isError = false,
                                 isStreaming = false,
                                 isInterrupted = true,
@@ -1836,6 +1856,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         const val MANGA_ANALYSIS_JPEG_QUALITY = 82
         const val MANGA_ANALYSIS_REENCODE_BYTES = 700 * 1024
         const val STREAM_RECOVERY_INTERVAL_MS = 1_400L
+        const val REASONING_UI_INTERVAL_MS = 120L
 
         fun streamUiIntervalMs(contentLength: Int): Long = when {
             contentLength < 2_000 -> 58L

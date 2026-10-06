@@ -88,6 +88,8 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
     private val workspaceStates = mutableStateMapOf<StoryWorkspace, StoryWorkspaceState>()
     private val loadingKeys = mutableStateMapOf<String, Boolean>()
     private val errors = mutableStateMapOf<StoryWorkspace, String>()
+    /** 正在生成的思考流，仅当前会话内存中可见；推理模型长时间静默时用于告诉用户它在推进。 */
+    private val workspaceReasoning = mutableStateMapOf<StoryWorkspace, String>()
     val tavernPresets = mutableStateListOf<TavernPresetSummary>()
     var activeTavernPresetId by mutableStateOf<String?>(null)
         private set
@@ -145,6 +147,7 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
 
     fun error(workspace: StoryWorkspace = activeWorkspace): String? = errors[workspace]
     fun clearError(workspace: StoryWorkspace = activeWorkspace) { errors.remove(workspace) }
+    fun reasoning(workspace: StoryWorkspace = activeWorkspace): String = workspaceReasoning[workspace].orEmpty()
 
     val activeTavernPresetName: String
         get() = tavernPresets.firstOrNull { it.id == activeTavernPresetId }?.name ?: "未使用预设"
@@ -961,13 +964,16 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
 
         if (!retrying) updateDraft("", workspace, emptyList())
         errors.remove(workspace)
+        workspaceReasoning.remove(workspace)
         loadingKeys[key] = true
         stopRequested.remove(key)
 
         val job = viewModelScope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             var assistant: StoryMessageWithRevision? = null
             val streamed = StringBuilder()
+            val reasoned = StringBuilder()
             var lastPersistAt = 0L
+            var lastReasoningPushAt = 0L
             try {
                 // Request-side source of truth: freeze the persisted Tavern selection and regex
                 // setting before mutating the assistant revision. Do not rely on the ViewModel's
@@ -1049,7 +1055,19 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
                     systemPrompt = preparedRequest.systemPrompt,
                     history = preparedRequest.history,
                     cacheKey = "aster-story-${story.id}-${workspace.dbValue}",
-                    generationOptions = preparedRequest.generationOptions
+                    generationOptions = preparedRequest.generationOptions,
+                    onReasoning = { chunk ->
+                        check(reasoned.length + chunk.length <= 100_000) { "思考内容过长，已停止；保留已收到的内容。" }
+                        reasoned.append(chunk)
+                        val now = SystemClock.elapsedRealtime()
+                        if (lastReasoningPushAt == 0L || now - lastReasoningPushAt >= 150L) {
+                            lastReasoningPushAt = now
+                            val snapshot = reasoned.toString()
+                            withContext(Dispatchers.Main) {
+                                if (activeStoryId == story.id) workspaceReasoning[workspace] = snapshot
+                            }
+                        }
+                    }
                 ) { delta ->
                     streamed.append(delta)
                     val now = SystemClock.elapsedRealtime()
@@ -1124,6 +1142,7 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
                     stopRequested.remove(key)
                     jobs.remove(key)
                     loadingKeys.remove(key)
+                    workspaceReasoning.remove(workspace)
                 }
                 refreshWorkspaceIfVisible(story.id, workspace)
                 refreshStory(story.id)
@@ -1405,6 +1424,7 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
         profile: ApiProfile, model: String, systemPrompt: String, history: List<ChatMessage>,
         cacheKey: String,
         generationOptions: com.adong.adchat.data.ChatGenerationOptions = com.adong.adchat.data.ChatGenerationOptions(),
+        onReasoning: suspend (String) -> Unit = {},
         onDelta: suspend (String) -> Unit
     ): com.adong.adchat.data.ChatCompletionResult {
         val preparedHistory = com.adong.adchat.data.story.StoryImages.hydrate(getApplication(),storyId,history)
@@ -1417,6 +1437,7 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
                 trimHistory = false,
                 skillsAllowed = category in setOf("prose", "discussion") && cacheKey.startsWith("aster-story-"),
                 generationOptions = generationOptions,
+                onReasoning = onReasoning,
                 onDelta = onDelta
             )
             result = response
