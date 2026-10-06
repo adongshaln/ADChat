@@ -140,7 +140,7 @@ class NativeSkillsTest {
             ))
 
             val result = repository.streamChat(
-                profile = ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test", chatApiMode = "responses"),
+                profile = ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test"),
                 model = "gpt-test",
                 systemPrompt = "",
                 history = listOf(ChatMessage(role = "user", content = "请加载并使用这个 skill：$sourceUrl")),
@@ -199,7 +199,7 @@ class NativeSkillsTest {
             ))
 
             val result = repository.streamChat(
-                profile = ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test", chatApiMode = "responses"),
+                profile = ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test"),
                 model = "gpt-test",
                 systemPrompt = "",
                 history = listOf(ChatMessage(role = "user", content = "加载 skill：$sourceUrl")),

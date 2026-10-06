@@ -24,7 +24,7 @@ class SkillPackageProtocolTest {
                 val read = JSONObject().put("skill", skill.sha256).put("path", "references/rules.md")
                 val done = if (responses) """{"id":"resp-3","status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"完成"}]}]}""" else """{"choices":[{"finish_reason":"stop","message":{"content":"完成"}}]}"""
                 listOf(tool(LOAD_SKILL_TOOL, load, 1), tool(READ_SKILL_FILE_TOOL, read, 2), done).forEach { server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody(it)) }
-                val result = repo.streamChat(ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test", chatApiMode = if (responses) "responses" else "chat"),
+                val result = repo.streamChat(ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test"),
                     if (responses) "gpt-test" else "gemini-test", "", listOf(ChatMessage(role = "user", content = "帮我检查这一段故事")), "selected") {}
                 assertTrue(result.outputComplete); assertEquals("完成", result.text)
                 val first = server.takeRequest().body.readUtf8()
@@ -42,7 +42,7 @@ class SkillPackageProtocolTest {
         try {
             server.enqueue(MockResponse().setHeader("Content-Type", "application/json").setBody("""{"choices":[{"finish_reason":"stop","message":{"content":"{}"}}]}"""))
             ApiRepository(SkillLoader { error("must not load") }).streamChat(
-                ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test", chatApiMode = "chat"), "gemini-test", "extract JSON",
+                ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test"), "gemini-test", "extract JSON",
                 listOf(ChatMessage(role = "user", content = "请加载 Skill https://github.com/test/skill")), "internal", skillsAllowed = false) {}
             assertFalse(JSONObject(server.takeRequest().body.readUtf8()).has("tools"))
         } finally { server.shutdown() }

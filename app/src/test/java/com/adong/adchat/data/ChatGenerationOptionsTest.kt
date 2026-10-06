@@ -42,7 +42,7 @@ class ChatGenerationOptionsTest {
                 """{"id":"r","status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"ok"}]}]}"""
             ))
             ApiRepository().streamChat(
-                ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test", chatApiMode = "responses"),
+                ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test"),
                 "gpt-test", "", listOf(ChatMessage(role = "user", content = "go")), "responses",
                 generationOptions = options
             ) {}

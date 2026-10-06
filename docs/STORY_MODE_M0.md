@@ -30,7 +30,7 @@ The repository does not contain `AGENTS.md`; repository root search also found n
   - Profiles hold Chat and Responses paths, model ids, reasoning/cache/tool options and encrypted API keys.
   - `ConfigStore` uses `SharedPreferences("adchat_api_config")` and Android Keystore AES-GCM for API key persistence.
 - `app/src/main/java/com/adong/adchat/data/ChatApiPolicy.kt`
-  - GPT model ids are forced to Responses; otherwise the saved `chatApiMode` selects Chat vs Responses.
+  - GPT and Grok model ids are forced to Responses; every other model uses Chat Completions. Users no longer pick the protocol.
 - `app/src/main/java/com/adong/adchat/data/ConversationRoute.kt`
   - A normal conversation stores `profileId` and `model`; legacy conversations can infer a route from earlier assistant metadata.
 

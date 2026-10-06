@@ -7,6 +7,11 @@ fun String.isGptModel(): Boolean = trim().substringAfterLast('/').let {
         (it.length > 3 && it.startsWith("gpt", ignoreCase = true) && it[3].isDigit())
 }
 
-/** Use the actual request model, which can differ from the profile default. */
-fun ApiProfile.usesResponses(model: String = chatModel): Boolean =
-    model.isGptModel() || chatApiMode == "responses"
+/** Provider-prefixed Grok IDs follow the same policy as direct model IDs. */
+fun String.isGrokModel(): Boolean = trim().substringAfterLast('/').startsWith("grok", ignoreCase = true)
+
+/**
+ * GPT 与 Grok 模型固定走 Responses API，其他模型走 Chat Completions。
+ * 以实际请求模型判定，因为它可能与 Profile 默认模型不同；模型切换后无需重新配置。
+ */
+fun ApiProfile.usesResponses(model: String = chatModel): Boolean = model.isGptModel() || model.isGrokModel()

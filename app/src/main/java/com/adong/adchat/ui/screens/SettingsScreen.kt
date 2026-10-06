@@ -49,7 +49,6 @@ import com.adong.adchat.data.IMAGE_API_MODE_GEMINI
 import com.adong.adchat.data.IMAGE_API_MODE_OPENAI
 import com.adong.adchat.data.hasValidBaseUrl
 import com.adong.adchat.data.invalidExtraHeaderLines
-import com.adong.adchat.data.isGptModel
 import com.adong.adchat.data.usesResponses
 import com.adong.adchat.data.normalized
 import com.adong.adchat.ui.ConnectionPhase
@@ -721,7 +720,7 @@ private fun ProfileEditor(
             }
             item {
                 EditorSection("默认模型", "切换到此 API 时，会恢复这里保存的模型。") {
-                    Text(if (draft.chatModel.isGptModel()) "GPT · Responses" else "GPT 自动使用 Responses；其他模型可在高级设置中选择协议",
+                    Text(if (draft.usesResponses()) "GPT / Grok · Responses" else "其他模型 · Chat Completions",
                         color = MutedInk, style = MaterialTheme.typography.labelMedium)
                     EditorModelField("对话模型", draft.chatModel, models.filterNot { it.id.isImageLike() }.ifEmpty { models }, { draft = draft.copy(chatModel = it) }, Icons.Outlined.Forum)
                     val limits = draft.modelContexts[draft.chatModel.trim()]
@@ -791,24 +790,9 @@ private fun ProfileEditor(
                 }
             }
             item {
-                SettingsDisclosure("高级设置", "协议、接口路径与请求头", Icons.Rounded.Code) {
-                    if (draft.chatModel.isGptModel()) {
-                        Text("GPT 模型固定使用 Responses，不自动切换协议。", color = MutedInk,
-                            style = MaterialTheme.typography.bodySmall)
-                    } else {
-                        Text("对话协议", style = MaterialTheme.typography.labelLarge)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            ImageProtocolOption("Chat Completions", !draft.usesResponses(), Modifier.weight(1f)) {
-                                draft = draft.copy(
-                                    chatApiMode = "chat",
-                                    fileCreationEnabled = if (draft.webSearchEnabled && !searchBackendConfigured) false else draft.fileCreationEnabled
-                                )
-                            }
-                            ImageProtocolOption("Responses", draft.usesResponses(), Modifier.weight(1f)) {
-                                draft = draft.copy(chatApiMode = "responses")
-                            }
-                        }
-                    }
+                SettingsDisclosure("高级设置", "绘图协议、接口路径与请求头", Icons.Rounded.Code) {
+                    Text("GPT 与 Grok 模型固定使用 Responses API，其他模型使用 Chat Completions；对话框右上角可查看当前请求使用的协议。",
+                        color = MutedInk, style = MaterialTheme.typography.bodySmall)
                     Column {
                         Text("绘图协议", style = MaterialTheme.typography.labelLarge)
                         Spacer(Modifier.height(7.dp))

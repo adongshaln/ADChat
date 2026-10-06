@@ -27,7 +27,6 @@ data class ApiProfile(
     val modelsPath: String = "/v1/models",
     val chatPath: String = "/v1/chat/completions",
     val responsesPath: String = "/v1/responses",
-    val chatApiMode: String = "chat",
     val reasoningEffort: String = "medium",
     val autoResumeStream: Boolean = true,
     val promptCacheEnabled: Boolean = true,
@@ -54,7 +53,6 @@ fun ApiProfile.normalized(): ApiProfile = copy(
     modelsPath = modelsPath.trim().ifBlank { "/v1/models" },
     chatPath = chatPath.trim().ifBlank { "/v1/chat/completions" },
     responsesPath = responsesPath.trim().ifBlank { "/v1/responses" },
-    chatApiMode = if (usesResponses()) "responses" else "chat",
     reasoningEffort = reasoningEffort.ifBlank { "medium" },
     promptCacheMode = promptCacheMode.takeIf { it in setOf("adaptive", "compatibility") } ?: "adaptive",
     imagePath = imagePath.trim().ifBlank { "/v1/images/generations" },
@@ -127,7 +125,6 @@ class ConfigStore(context: Context) {
             modelsPath = prefs.getString("modelsPath", null) ?: "/v1/models",
             chatPath = prefs.getString("chatPath", null) ?: "/v1/chat/completions",
             responsesPath = prefs.getString("responsesPath", null) ?: "/v1/responses",
-            chatApiMode = prefs.getString("chatApiMode", null) ?: "chat",
             reasoningEffort = prefs.getString("reasoningEffort", null) ?: "medium",
             autoResumeStream = true,
             promptCacheEnabled = prefs.getBoolean("promptCacheEnabled", true),
@@ -168,7 +165,6 @@ class ConfigStore(context: Context) {
                     .put("modelsPath", profile.modelsPath)
                     .put("chatPath", profile.chatPath)
                     .put("responsesPath", profile.responsesPath)
-                    .put("chatApiMode", profile.chatApiMode)
                     .put("reasoningEffort", profile.reasoningEffort)
                     .put("autoResumeStream", profile.autoResumeStream)
                     .put("promptCacheEnabled", profile.promptCacheEnabled)
@@ -205,7 +201,6 @@ class ConfigStore(context: Context) {
                     modelsPath = item.optString("modelsPath").ifBlank { "/v1/models" },
                     chatPath = item.optString("chatPath").ifBlank { "/v1/chat/completions" },
                     responsesPath = item.optString("responsesPath").ifBlank { "/v1/responses" },
-                    chatApiMode = item.optString("chatApiMode").ifBlank { "chat" },
                     reasoningEffort = item.optString("reasoningEffort").ifBlank { "medium" },
                     autoResumeStream = item.optBoolean("autoResumeStream", true),
                     promptCacheEnabled = item.optBoolean("promptCacheEnabled", true),

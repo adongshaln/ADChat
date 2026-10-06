@@ -10,7 +10,7 @@ class StoryUsageReportingTest {
     @Test fun chatUsageDistinguishesMissingPartialAndExplicitZero() = runBlocking {
         val server=MockWebServer();server.start()
         try {
-            val profile=ApiProfile(baseUrl=server.url("/").toString(),apiKey="test",chatApiMode="chat")
+            val profile=ApiProfile(baseUrl=server.url("/").toString(),apiKey="test")
             for((usage,reported) in listOf("null" to false,"{}" to false,
                 "{\"total_tokens\":20}" to false,"{\"prompt_tokens\":10}" to false,
                 "{\"prompt_tokens\":0,\"completion_tokens\":0}" to true,

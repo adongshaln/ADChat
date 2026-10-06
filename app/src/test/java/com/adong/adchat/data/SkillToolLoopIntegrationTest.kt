@@ -45,8 +45,7 @@ class SkillToolLoopIntegrationTest {
                     baseUrl = server.url("/").toString(),
                     apiKey = "test",
                     chatModel = "gemini-test",
-                    chatPath = "/v1/chat/completions",
-                    chatApiMode = "chat"
+                    chatPath = "/v1/chat/completions"
                 ),
                 model = "gemini-test",
                 systemPrompt = "",
@@ -103,8 +102,7 @@ class SkillToolLoopIntegrationTest {
                     baseUrl = server.url("/").toString(),
                     apiKey = "test",
                     chatModel = "gpt-5.6-test",
-                    responsesPath = "/v1/responses",
-                    chatApiMode = "responses"
+                    responsesPath = "/v1/responses"
                 ),
                 model = "gpt-5.6-test",
                 systemPrompt = "",

@@ -11,7 +11,7 @@ class StoryCompletionContractTest {
     @Test fun geminiChatPreservesPartialTextButOnlyStopConfirmsCompletion() = runBlocking {
         val server = MockWebServer(); server.start()
         try {
-            val profile = ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test", chatApiMode = "chat")
+            val profile = ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test")
             for (reason in listOf("stop", "length", "content_filter", "unknown")) {
                 server.enqueue(MockResponse().setHeader("Content-Type", "text/event-stream").setBody(
                     "data: {\"choices\":[{\"delta\":{\"content\":\"故事内容\"}}]}\n\n" +
@@ -63,7 +63,7 @@ class StoryCompletionContractTest {
                     """{"id":"r","status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"收到"}]}]}"""
                 else """{"choices":[{"message":{"content":"收到"},"finish_reason":"stop"}]}"""
                 server.enqueue(MockResponse().setHeader("Content-Type","application/json").setBody(response))
-                ApiRepository().streamChat(ApiProfile(baseUrl=server.url("/").toString(),apiKey="test",chatApiMode="chat"),model,"",listOf(ChatMessage(role="user",content=text,attachments=listOf(image))),"test") {}
+                ApiRepository().streamChat(ApiProfile(baseUrl=server.url("/").toString(),apiKey="test"),model,"",listOf(ChatMessage(role="user",content=text,attachments=listOf(image))),"test") {}
                 val request=server.takeRequest().body.readUtf8()
                 assertTrue(request.contains("北方终年积雪"))
                 assertTrue(request.contains("data:image/jpeg;base64,AQID"))
@@ -95,7 +95,7 @@ class StoryCompletionContractTest {
                 """{"choices":[{"message":{"content":"已按真实 Skill 执行"},"finish_reason":"stop"}]}"""))
 
             val result = repository.streamChat(
-                ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test", chatApiMode = "chat"),
+                ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test"),
                 "gemini-test",
                 "",
                 listOf(ChatMessage(role = "user", content = "请加载这个 skill：$skillUrl 并按它回答")),
@@ -160,7 +160,7 @@ class StoryCompletionContractTest {
                 """{"id":"resp-2","status":"completed","output":[{"type":"message","content":[{"type":"output_text","text":"Responses 已按真实 Skill 执行"}]}]}"""))
 
             val result = repository.streamChat(
-                ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test", chatApiMode = "responses"),
+                ApiProfile(baseUrl = server.url("/").toString(), apiKey = "test"),
                 "gpt-test",
                 "",
                 listOf(ChatMessage(role = "user", content = "使用这个 Skill：$skillUrl")),

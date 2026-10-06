@@ -68,7 +68,6 @@ class DelegatedSearchIntegrationTest {
                 baseUrl = server.url("/").toString(),
                 apiKey = "test-key",
                 chatModel = "gemini-test",
-                chatApiMode = "chat",
                 chatPath = "/v1/chat/completions",
                 responsesPath = "/v1/responses",
                 webSearchEnabled = true,

@@ -241,7 +241,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     fun createOpenAiProfile(): ApiProfile = ApiProfile(
         id = UUID.randomUUID().toString(), name = "OpenAI GPT-5.6", baseUrl = "https://api.openai.com",
-        chatModel = "gpt-5.6-sol", imageModel = "gpt-image-1", chatApiMode = "responses",
+        chatModel = "gpt-5.6-sol", imageModel = "gpt-image-1",
         reasoningEffort = "high", promptCacheEnabled = true, promptCacheMode = "adaptive"
     )
 
@@ -511,7 +511,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         .put("modelsPath", profile.modelsPath)
                         .put("chatPath", profile.chatPath)
                         .put("responsesPath", profile.responsesPath)
-                        .put("chatApiMode", profile.chatApiMode)
                         .put("reasoningEffort", profile.reasoningEffort)
                         .put("autoResumeStream", profile.autoResumeStream)
                         .put("promptCacheEnabled", profile.promptCacheEnabled)
@@ -550,7 +549,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     modelsPath = item.optString("modelsPath").ifBlank { "/v1/models" },
                     chatPath = item.optString("chatPath").ifBlank { "/v1/chat/completions" },
                     responsesPath = item.optString("responsesPath").ifBlank { "/v1/responses" },
-                    chatApiMode = item.optString("chatApiMode").ifBlank { "chat" },
                     reasoningEffort = item.optString("reasoningEffort").ifBlank { "medium" },
                     autoResumeStream = item.optBoolean("autoResumeStream", true),
                     promptCacheEnabled = item.optBoolean("promptCacheEnabled", true),
