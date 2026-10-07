@@ -174,6 +174,7 @@ private val shapes = Shapes(
  * Claude 主题的衬线标题字族（Source Serif 4，OFL 协议，见 docs/fonts/）。
  * 可变字体按字重出实例；中文回退系统衬线，属渐进增强。
  */
+@OptIn(androidx.compose.ui.text.ExperimentalTextApi::class)
 val SerifHeading = FontFamily(
     Font(R.font.sourceserif4_variable, weight = FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
     Font(R.font.sourceserif4_variable, weight = FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
