@@ -253,6 +253,8 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                 }
             }
         )
+        val glassHaze = rememberGlassHazeState()
+        CompositionLocalProvider(LocalGlassHazeState provides glassHaze) {
         Box(Modifier.weight(1f).fillMaxWidth().imePadding()) {
             Box(
                 Modifier.fillMaxSize()
@@ -271,7 +273,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                 } else {
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().glassSource(glassHaze),
                         contentPadding = PaddingValues(
                             start = 22.dp,
                             end = 22.dp,
@@ -360,6 +362,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                     modifier = Modifier.align(Alignment.BottomCenter)
                 )
             }
+        }
         }
     }
     if (showSwitcher) {

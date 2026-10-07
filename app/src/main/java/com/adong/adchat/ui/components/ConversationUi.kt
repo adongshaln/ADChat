@@ -140,11 +140,14 @@ fun ConversationComposer(
             }
         }
         Surface(
-            color = Surface.copy(alpha = .97f),
+            color = if (LocalGlassHazeState.current != null) Color.Transparent else Surface.copy(alpha = .97f),
             shape = capsuleShape,
             border = BorderStroke(1.dp, if (isFocused) Accent.copy(alpha = .35f) else Hairline),
             shadowElevation = 0.dp,
-            modifier = Modifier.fillMaxWidth().testTag("$testTag-composer")
+            modifier = Modifier
+                .fillMaxWidth()
+                .glassSurface(LocalGlassHazeState.current, capsuleShape, Surface.copy(alpha = .78f))
+                .testTag("$testTag-composer")
         ) {
             Box(Modifier.fillMaxWidth().defaultMinSize(minHeight = minimumHeight)) {
                 BasicTextField(
