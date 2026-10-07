@@ -7,6 +7,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.adong.adchat.data.THEME_MODE_GLASS
@@ -46,9 +47,16 @@ fun Modifier.glassSource(state: HazeState?): Modifier =
 fun Modifier.glassSurface(state: HazeState?, shape: RoundedCornerShape, baseColor: Color): Modifier {
     if (state == null) return this
     val canvas = LocalAsterPalette.current.canvas
+    // 顶部亮、底部透的纵向染色，给出「液态」高光；纯色会让玻璃看起来像换个底色。
     val style = HazeStyle(
         backgroundColor = canvas,
-        tints = listOf(HazeTint(baseColor)),
+        tints = listOf(
+            HazeTint(
+                Brush.verticalGradient(
+                    listOf(baseColor.copy(alpha = .74f), baseColor.copy(alpha = .42f))
+                )
+            )
+        ),
         blurRadius = 24.dp
     )
     return this.clip(shape).hazeEffect(state = state, style = style)
