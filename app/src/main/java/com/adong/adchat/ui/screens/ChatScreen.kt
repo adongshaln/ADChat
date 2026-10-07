@@ -1530,6 +1530,7 @@ private fun AsterWritingCursorLine(error: Boolean) {
     )
 }
 
+@Composable
 private fun inlineMarkdown(text: String): AnnotatedString {
     val base = basicInlineMarkdown(text)
     val source = base.text
@@ -1551,6 +1552,7 @@ private fun inlineMarkdown(text: String): AnnotatedString {
     }
 }
 
+@Composable
 private fun basicInlineMarkdown(text: String): AnnotatedString = buildAnnotatedString {
     var index = 0
     val tokens = listOf("**", "__", "~~", "`", "*", "_")
