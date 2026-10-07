@@ -1203,7 +1203,7 @@ private fun ImageLightbox(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.navigationBarsPadding().padding(horizontal = 18.dp, vertical = 16.dp)) {
-                        if (prompt.isNotBlank()) {
+                        if (!prompt.isNullOrBlank()) {
                             Text(prompt, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
                             Spacer(Modifier.height(7.dp))
                         }
