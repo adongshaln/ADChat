@@ -56,8 +56,7 @@ fun ConversationComposer(
     testTag: String = "chat",
     configureRequired: Boolean = false,
     contextAction: (@Composable () -> Unit)? = null,
-    reasoningAction: (@Composable () -> Unit)? = null,
-    trailingActions: @Composable () -> Unit = {}
+    reasoningAction: (@Composable () -> Unit)? = null
 ) {
     val focus = LocalFocusManager.current
     val resolvedFocusRequester = focusRequester ?: remember { FocusRequester() }
@@ -202,12 +201,9 @@ fun ConversationComposer(
                     }
                     Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            // 上下文进度与思考强度常驻，不随焦点隐藏；工具栏按钮仍只在聚焦时出现。
+                            // 上下文进度与思考强度常驻，不随焦点隐藏；模型切换收归顶栏，输入条不再放第二入口。
                             contextAction?.invoke()
                             reasoningAction?.invoke()
-                            androidx.compose.animation.AnimatedVisibility(visible = isFocused, enter = fadeIn(tween(150)), exit = fadeOut(tween(90))) {
-                                trailingActions()
-                            }
                         }
                     }
                     AnimatedVisibility(visible = isFocused, enter = fadeIn(tween(150)), exit = fadeOut(tween(90))) {
@@ -223,7 +219,7 @@ fun ConversationComposer(
                     }
                     FilledIconButton(
                         onClick = {
-                            haptics.performHapticFeedback(if (loading) HapticFeedbackType.LongPress else HapticFeedbackType.TextHandleMove)
+                            haptics.performHapticFeedback(if (loading) HapticFeedbackType.LongPress else HapticFeedbackType.Confirm)
                             if (loading) onStop() else {
                                 focus.clearFocus()
                                 onSend()
@@ -326,10 +322,12 @@ fun ConversationReasoningPanel(
     modifier: Modifier = Modifier
 ) {
     if (reasoning.isBlank()) return
-    var expanded by remember { mutableStateOf(true) }
-    val scrollState = rememberScrollState()
-    if (streaming && expanded) {
-        LaunchedEffect(reasoning.length) { scrollState.scrollTo(scrollState.maxValue) }
+    var expanded by remember { mutableStateOf(streaming) }
+    var wasStreaming by remember { mutableStateOf(false) }
+    // 思考是过程信息：流式时展开可见，正文开始输出后收成一行，点击可回看。
+    LaunchedEffect(streaming) {
+        if (wasStreaming && !streaming) expanded = false
+        wasStreaming = streaming
     }
     Surface(
         onClick = { expanded = !expanded },
@@ -348,21 +346,15 @@ fun ConversationReasoningPanel(
                         strokeWidth = 2.dp
                     )
                 } else {
-                    Icon(Icons.Rounded.Psychology, null, Modifier.size(17.dp), tint = MutedInk)
+                    Icon(Icons.Rounded.Schedule, null, Modifier.size(16.dp), tint = MutedInk)
                 }
                 Spacer(Modifier.width(8.dp))
                 Text(
-                    if (streaming) "正在思考…" else "思考过程",
+                    if (streaming) "正在思考…" else "已思考 ${reasoning.length} 字",
                     style = MaterialTheme.typography.labelLarge,
                     color = MutedInk,
                     modifier = Modifier.weight(1f)
                 )
-                Text(
-                    "${reasoning.length} 字",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MutedInk.copy(alpha = .7f)
-                )
-                Spacer(Modifier.width(4.dp))
                 Icon(
                     if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
                     null,
@@ -373,7 +365,7 @@ fun ConversationReasoningPanel(
             AnimatedVisibility(expanded) {
                 Text(
                     reasoning,
-                    Modifier.padding(top = 8.dp).heightIn(max = 240.dp).verticalScroll(scrollState),
+                    Modifier.padding(top = 8.dp),
                     style = MaterialTheme.typography.bodySmall,
                     color = MutedInk,
                     lineHeight = 19.sp
@@ -390,20 +382,16 @@ fun ConversationMessageAction(
     onClick: () -> Unit,
     accent: Boolean = false
 ) {
+    // 图标化 + 45% 透明度：动作行不与正文抢注意力；label 仅供无障碍与长按语义。
     Surface(
         onClick = onClick,
         color = Color.Transparent,
-        contentColor = if (accent) Accent else Ink,
+        contentColor = if (accent) Accent else Ink.copy(alpha = .45f),
         shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.heightIn(min = 48.dp)
+        modifier = Modifier.size(36.dp)
     ) {
-        Row(
-            Modifier.padding(horizontal = 7.dp, vertical = 5.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(17.dp))
-            Spacer(Modifier.width(5.dp))
-            Text(label, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Box(contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = label, modifier = Modifier.size(18.dp))
         }
     }
 }

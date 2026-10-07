@@ -285,6 +285,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                             key = { it.id },
                             contentType = { it.role }
                         ) { message ->
+                            Box(Modifier.animateItem()) {
                             ChatMessageItem(
                                 message = message,
                                 canRegenerate = message.id == regeneratableMessageId,
@@ -307,6 +308,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                                     }
                                 }
                             )
+                            }
                         }
                         item { Spacer(Modifier.height(4.dp)) }
                     }
@@ -1646,33 +1648,6 @@ private fun ChatComposer(
                 )
             }
         },
-        trailingActions = {
-                        Surface(
-                            onClick = {
-                                focus.clearFocus()
-                                onModelClick()
-                            },
-                            color = Color.Transparent,
-                            contentColor = Ink,
-                            shape = RoundedCornerShape(16.dp)
-                        ) {
-                            Row(
-                                // 与常驻的上下文圈、思考强度按钮共享一行，窄屏也要放得下。
-                                Modifier.widthIn(max = 88.dp).padding(horizontal = 9.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    compactModelLabel(model),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis
-                                )
-                                Spacer(Modifier.width(3.dp))
-                                Icon(Icons.Rounded.ExpandMore, "更换模型", Modifier.size(16.dp), tint = MutedInk)
-                            }
-                        }
-        }
     )
     if (showToolsSheet) {
         ChatToolsSheet(
@@ -1852,4 +1827,3 @@ private fun compactEffortLabel(label: String): String = when (label) {
     else -> label.take(2)
 }
 
-private fun compactModelLabel(value: String): String = value.ifBlank { "选择模型" }
