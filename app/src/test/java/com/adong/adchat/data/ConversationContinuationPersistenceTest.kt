@@ -20,7 +20,7 @@ class ConversationContinuationPersistenceTest {
 
     @Test
     fun continuationFlagSurvivesSaveAndLoad() {
-        val context = RuntimeEnvironment.getApplication<Context>()
+        val context = RuntimeEnvironment.getApplication()
         context.getSharedPreferences("adchat_conversations", Context.MODE_PRIVATE).edit().clear().commit()
         val conversation = Conversation(
             id = "conv-note",

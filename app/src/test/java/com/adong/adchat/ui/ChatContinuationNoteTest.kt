@@ -38,7 +38,6 @@ class ChatContinuationNoteTest {
     @Test
     fun editingResendReloadsTheOriginalImagesAndText() {
         val vm = viewModel()
-        vm.activeConversationId = "conv-edit"
         vm.messages.addAll(
             listOf(
                 ChatMessage(
