@@ -290,32 +290,33 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                             key = { it.id },
                             contentType = { it.role }
                         ) { message ->
-                            Box(Modifier.animateItem()) {
-                            ChatMessageItem(
-                                message = message,
-                                canRegenerate = message.id == regeneratableMessageId,
-                                onRetry = { vm.retryMessage(message.id) },
-                                onRegenerate = { vm.regenerateMessage(message.id) },
-                                onEditResend = { editCandidate = message },
-                                onConfigureContext = { showContextDialog = true },
-                                onSaveFile = { file ->
-                                    pendingFileExport = file
-                                    fileExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
-                                        addCategory(Intent.CATEGORY_OPENABLE)
-                                        type = file.mimeType
-                                        putExtra(Intent.EXTRA_TITLE, file.name)
-                                    })
-                                },
-                                onStreamingTextAdvanced = { streamScrollSignals.tryEmit(Unit) },
-                                onDetailsExpanded = {
-                                    autoFollow = false
-                                    val index = vm.messages.indexOfFirst { it.id == message.id }
-                                    if (index >= 0) scope.launch {
-                                        listState.revealConversationDetails(index, with(density) { (composerHeight + 12.dp).toPx() })
-                                    }
+                        ChatMessageItem(
+                            message = message,
+                            canRegenerate = message.id == regeneratableMessageId,
+                            onRetry = { vm.retryMessage(message.id) },
+                            onRegenerate = { vm.regenerateMessage(message.id) },
+                            onEditResend = { editCandidate = message },
+                            onConfigureContext = { showContextDialog = true },
+                            onSaveFile = { file ->
+                                pendingFileExport = file
+                                fileExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+                                    addCategory(Intent.CATEGORY_OPENABLE)
+                                    type = file.mimeType
+                                    putExtra(Intent.EXTRA_TITLE, file.name)
+                                })
+                            },
+                            onStreamingTextAdvanced = { streamScrollSignals.tryEmit(Unit) },
+                            onDetailsExpanded = {
+                                autoFollow = false
+                                val index = vm.messages.indexOfFirst { it.id == message.id }
+                                if (index >= 0) scope.launch {
+                                    listState.revealConversationDetails(
+                                        index,
+                                        with(density) { (composerHeight + 12.dp).toPx() }
+                                    )
                                 }
-                            )
                             }
+                        )
                         }
                         item { Spacer(Modifier.height(4.dp)) }
                     }
