@@ -267,7 +267,8 @@ private fun ProfileTransferDialog(
     val exporting = mode == "export"
     AdModalDialog(
         title = if (exporting) "导出 API 配置" else "导入 API 配置",
-        subtitle = if (exporting) "生成可跨设备迁移的 JSON" else "从 Aster JSON 恢复路由与模型",
+        // 导入实际是追加，不是恢复：文案必须说清，否则用户以为迁移完路由却没生效。
+        subtitle = if (exporting) "生成可跨设备迁移的 JSON" else "把 JSON 里的配置追加进来，不会覆盖现有配置",
         icon = if (exporting) Icons.Rounded.FileDownload else Icons.Rounded.FileUpload,
         onDismiss = onDismiss,
         content = {

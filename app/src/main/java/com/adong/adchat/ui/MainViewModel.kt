@@ -645,7 +645,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         require(imported.isNotEmpty()) { "没有找到可导入的有效 API 配置" }
         appConfig = appConfig.copy(profiles = profiles + imported)
         persist()
-        notice = "已导入 ${imported.size} 个 API 配置"
+        // 导出时没勾「包含 API Key」导入回来就是空 Key，等到第一次 401 才发现太晚。
+        val withoutKey = imported.count { it.apiKey.isBlank() }
+        notice = if (withoutKey > 0) {
+            "已导入 ${imported.size} 个 API 配置，其中 $withoutKey 个未包含 API Key，请在编辑中补齐"
+        } else {
+            "已导入 ${imported.size} 个 API 配置"
+        }
         imported.size
     }
     fun updateChatInput(value: String) {

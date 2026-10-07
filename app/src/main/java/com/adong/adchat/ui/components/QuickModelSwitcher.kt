@@ -107,7 +107,7 @@ fun QuickModelSwitcher(
                         RouteKind.Analysis -> "选择漫画辅助模型"
                     }, style = MaterialTheme.typography.titleLarge)
                     Text(when (kind) {
-                        RouteKind.Chat -> "点模型切换 · 点上下文设置容量"
+                        RouteKind.Chat -> "切换后作用于之后的对话"
                         RouteKind.Image -> "先确认 API 路由，再选择模型"
                         RouteKind.Analysis -> "用于理解多页设定并整理逐页译文"
                     }, color = MutedInk, style = MaterialTheme.typography.bodyMedium)

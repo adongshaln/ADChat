@@ -872,8 +872,8 @@ private fun TokenUsagePanel(usage: com.adong.adchat.data.TokenUsage) {
     val title = when {
         hasCache -> "缓存命中 $hitPercent%"
         hasCacheWrite -> "已写入缓存 ${formatTokens(usage.cacheWriteTokens)}"
-        waitingForReuse && !usage.cacheEligible -> "上下文较短，尚未进入缓存"
-        waitingForReuse -> "已提交缓存，等待复用"
+        waitingForReuse && !usage.cacheEligible -> "上下文较短，暂不使用缓存"
+        waitingForReuse -> "已提交，下次请求可复用"
         else -> "本次未启用缓存"
     }
     val summary = if (hasCache) {
@@ -925,9 +925,9 @@ private fun TokenUsagePanel(usage: com.adong.adchat.data.TokenUsage) {
                     UsageLine("输入", formatTokens(usage.inputTokens), "未缓存 ${formatTokens(usage.uncachedInputTokens)}")
                     UsageLine("缓存", formatTokens(usage.cachedTokens), if (hitPercent > 0) "命中 $hitPercent%" else "尚未命中")
                     if (usage.cacheWriteTokens > 0) {
-                        UsageLine("写入", formatTokens(usage.cacheWriteTokens), "服务端报告")
+                        UsageLine("写入", formatTokens(usage.cacheWriteTokens), "来自服务端")
                     } else if (waitingForReuse) {
-                        UsageLine("状态", if (usage.cacheEligible) "等待复用" else "未达 1024 Token", null)
+                        UsageLine("状态", if (usage.cacheEligible) "等待复用" else "暂不使用缓存", null)
                     }
                     UsageLine("输出", formatTokens(usage.outputTokens), usage.reasoningTokens.takeIf { it > 0 }?.let { "推理 ${formatTokens(it)}" })
                     if (usage.timeToFirstTokenMs != null || usage.durationMs != null) {

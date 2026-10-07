@@ -267,7 +267,7 @@ fun DrawScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
             source = reference.uri,
             title = "参考图预览",
             subtitle = listOf(reference.name, formatFileSize(reference.size)).joinToString(" · "),
-            prompt = "可以双击放大，或用双指缩放与移动查看细节。",
+            prompt = null,
             onDismiss = { previewReference = null }
         )
     }
@@ -1091,7 +1091,7 @@ private fun ImageLightbox(
     source: String,
     title: String,
     subtitle: String,
-    prompt: String,
+    prompt: String?,
     onDismiss: () -> Unit,
     onSave: (() -> Unit)? = null,
     onReuse: (() -> Unit)? = null
@@ -1203,8 +1203,10 @@ private fun ImageLightbox(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(Modifier.navigationBarsPadding().padding(horizontal = 18.dp, vertical = 16.dp)) {
-                        Text(prompt, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                        Spacer(Modifier.height(7.dp))
+                        if (prompt.isNotBlank()) {
+                            Text(prompt, color = Color.White, style = MaterialTheme.typography.bodyMedium, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                            Spacer(Modifier.height(7.dp))
+                        }
                         Text("双击缩放 · 双指移动 · 单击隐藏控件", color = Color(0xFFBDB8B2), style = MaterialTheme.typography.labelMedium)
                         if (onSave != null || onReuse != null) {
                             Spacer(Modifier.height(14.dp))

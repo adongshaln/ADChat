@@ -434,7 +434,8 @@ internal fun AppDrawer(
     deleteCandidate?.let { conversation ->
         AdConfirmDialog(
             title = "删除这段对话？",
-            message = "“${conversation.title}”及其中的全部消息将被永久删除。",
+            // 撤销是真实存在的，别写成「永久删除」把人逼着急着点确认。
+            message = "“${conversation.title}”及其中的全部消息将被删除，删除后底部会出现一次撤销机会。",
             confirmLabel = "删除",
             dismissLabel = "取消",
             icon = Icons.Rounded.DeleteOutline,

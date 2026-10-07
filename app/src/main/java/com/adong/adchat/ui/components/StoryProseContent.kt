@@ -26,24 +26,24 @@ internal fun StoryProseContent(presentation: StoryProsePresentation, streaming: 
     Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         if (presentation.thinking.isNotBlank()) {
             StoryProseSection(
-                title = if (presentation.thinkingIncomplete) "思考文本 · ${if (streaming) "接收中" else "未完整结束"}" else "思考文本",
+                title = if (presentation.thinkingIncomplete) "思考 · ${if (streaming) "接收中" else "未完整结束"}" else "思考",
                 text = presentation.thinking,
-                note = "回复中 think / thinking 标签内的文本，可能包含分析或试写",
+                note = "动笔前的推敲，最终稿可能和这里不一样",
                 initiallyExpanded = thoughtsInitiallyExpanded,
                 collapseWhen = bodyStarted
             )
         }
         if (presentation.planning.isNotBlank()) {
             StoryProseSection(
-                title = if (presentation.planningIncomplete) "思考过程 · ${if (streaming) "接收中" else "未完整结束"}" else "思考过程",
+                title = if (presentation.planningIncomplete) "规划 · ${if (streaming) "接收中" else "未完整结束"}" else "规划",
                 text = presentation.planning,
-                note = "由当前预设要求模型输出的规划内容",
+                note = "按当前预设的要求，模型先给出的写作安排",
                 initiallyExpanded = thoughtsInitiallyExpanded,
                 collapseWhen = bodyStarted
             )
         } else if (presentation.showPlanningStatus) Text(
             if (streaming && !bodyStarted) "正在等待回复…"
-            else "未发现可显示的思考过程；这不代表模型没有进行内部推理。",
+            else "本次回复没有单独的思考内容。",
             color = MutedInk, style = MaterialTheme.typography.labelSmall
         )
         presentation.blocks.forEachIndexed { index, block ->
@@ -53,7 +53,7 @@ internal fun StoryProseContent(presentation: StoryProsePresentation, streaming: 
             }
         }
         if (presentation.skippedScripts.isNotEmpty()) Text(
-            "未执行的正则：${presentation.skippedScripts.joinToString("、")}",
+            "未生效的处理规则：${presentation.skippedScripts.joinToString("、")}",
             color = MutedInk, style = MaterialTheme.typography.labelSmall
         )
     }

@@ -376,8 +376,8 @@ private fun TavernPresetSheet(
             }
         }
         AdToggleCard(
-            title = "执行预设正则",
-            subtitle = "请求前清理上下文，回复显示时执行美化；不会改写数据库原文",
+            title = "执行预设处理规则",
+            subtitle = "自动整理发给模型的内容，并美化回复的显示；不会改动你保存的原文",
             checked = regexEnabled,
             onCheckedChange = onRegexEnabled,
             enabled = !busy,
@@ -389,7 +389,7 @@ private fun TavernPresetSheet(
                     Icon(Icons.Rounded.Security, null, Modifier.size(19.dp), tint = MutedInk)
                     Spacer(Modifier.width(9.dp))
                     Text(
-                        "预设中的 ${active?.helperScriptCount} 个 Tavern Helper 脚本已随文件保留，但不会执行第三方 JavaScript。正则生成的 HTML 会关闭脚本与网络后预览。",
+                        "预设自带的 ${active?.helperScriptCount} 个辅助脚本已随文件保留，但不会在手机上运行。由处理规则生成的 HTML 会在关闭脚本与网络的状态下预览。",
                         color = MutedInk,
                         style = MaterialTheme.typography.bodySmall
                     )
@@ -413,7 +413,7 @@ private fun TavernPresetSheet(
             Text(if (busy) "正在处理…" else "导入酒馆 JSON 预设")
         }
         Text(
-            "兼容 prompt_order、角色顺序、setvar/getvar、random、roll、lastUserMessage，以及酒馆正则的角色、深度、全局标志和显示/请求范围。",
+            "已适配常见酒馆预设的提示词与处理规则；导入后可以在上方逐条查看、启停和修改。",
             color = MutedInk,
             style = MaterialTheme.typography.labelSmall
         )

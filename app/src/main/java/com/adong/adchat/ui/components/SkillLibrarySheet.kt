@@ -16,8 +16,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.adong.adchat.data.LoadedSkill
 import com.adong.adchat.data.SkillRuntime
+import com.adong.adchat.ui.theme.Danger
+import com.adong.adchat.ui.theme.DangerSoft
 import com.adong.adchat.ui.theme.Ink
 import com.adong.adchat.ui.theme.MutedInk
+import com.adong.adchat.ui.theme.SageSoft
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -43,6 +46,7 @@ fun SkillLibrarySheet(conversationScope: String?, onDismiss: () -> Unit) {
     var source by remember { mutableStateOf("") }
     var busy by remember { mutableStateOf(true) }
     var notice by remember { mutableStateOf<String?>(null) }
+    var noticeIsError by remember { mutableStateOf(false) }
     var detail by remember { mutableStateOf<String?>(null) }
     var deleting by remember { mutableStateOf<LoadedSkill?>(null) }
     suspend fun reload() {
@@ -51,18 +55,18 @@ fun SkillLibrarySheet(conversationScope: String?, onDismiss: () -> Unit) {
     }
     fun action(message: String, block: () -> Unit) {
         if (busy) return
-        busy = true; notice = null
+        busy = true; notice = null; noticeIsError = false
         coroutineScope.launch {
-            try { withContext(Dispatchers.IO) { block() }; reload(); notice = message }
+            try { withContext(Dispatchers.IO) { block() }; reload(); notice = message; noticeIsError = false }
             catch (cancelled: CancellationException) { throw cancelled }
-            catch (error: Exception) { notice = error.message ?: "操作失败，请重试" }
+            catch (error: Exception) { notice = error.message ?: "操作失败，请重试"; noticeIsError = true }
             finally { busy = false }
         }
     }
     LaunchedEffect(Unit) {
         try { reload() }
         catch (cancelled: CancellationException) { throw cancelled }
-        catch (error: Exception) { notice = error.message ?: "技能列表加载失败，请重新打开" }
+        catch (error: Exception) { notice = error.message ?: "技能列表加载失败，请重新打开"; noticeIsError = true }
         finally { busy = false }
     }
     val zipPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -88,12 +92,24 @@ fun SkillLibrarySheet(conversationScope: String?, onDismiss: () -> Unit) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(enabled = !busy && source.isNotBlank(), onClick = {
                 val url = source.trim()
-                action("技能已安装；已有技能的版本已更新") { runtime.install(url) }
+                // 首次安装和更新说的是两件事，别用同一句「版本已更新」带过。
+                val alreadyInstalled = skills.any { it.sourceUrl == url }
+                action(if (alreadyInstalled) "技能已更新" else "技能已安装；可在输入选项中选择使用") { runtime.install(url) }
             }) { Text("安装 / 更新") }
             OutlinedButton(enabled = !busy, onClick = { zipPicker.launch(arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream")) }) { Text("导入 ZIP") }
         }
         if (busy) LinearProgressIndicator(Modifier.fillMaxWidth())
-        notice?.let { Text(it, color = MutedInk, style = MaterialTheme.typography.bodySmall) }
+        // 成功与失败必须能分开：加载失败/URL 非法和「已安装」长得一样就没法判断结果。
+        notice?.let {
+            Surface(
+                color = if (noticeIsError) DangerSoft else SageSoft,
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(it, color = if (noticeIsError) Danger else Ink, style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 9.dp))
+            }
+        }
         if (skills.isEmpty() && !busy) Text("还没有技能。安装后，可在普通聊天、故事讨论和正文中分别选择。", color = MutedInk)
         skills.forEach { skill ->
             Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surface, modifier = Modifier.fillMaxWidth()) {
@@ -104,19 +120,30 @@ fun SkillLibrarySheet(conversationScope: String?, onDismiss: () -> Unit) {
                             Text(skill.description.ifBlank { "此技能未提供简介" }, maxLines = 3, overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodySmall, color = MutedInk)
                         }
-                        if (conversationScope != null) Checkbox(skill.sourceUrl in selected, modifier = Modifier.testTag("skill-select-${skill.sourceUrl}"), enabled = !busy && (skill.enabled || skill.sourceUrl in selected),
+                        if (conversationScope != null) Checkbox(skill.sourceUrl in selected, modifier = Modifier.testTag("skill-select-${skill.sourceUrl}"), enabled = !busy && skill.enabled,
                             onCheckedChange = { checked ->
                                 val next = if (checked) selected + skill.sourceUrl else selected - skill.sourceUrl
                                 action("此对话的技能选择已保存") { runtime.select(conversationScope, next) }
                             })
                     }
-                    Text(if (!skill.enabled) "已停用" else if (skill.containsScripts)
-                        "含脚本 · 可读取说明与资料，脚本执行需要额外环境" else "可读取说明与资料，使用现有工具",
-                        style = MaterialTheme.typography.labelSmall, color = MutedInk)
+                    val selectedHere = conversationScope != null && skill.sourceUrl in selected
+                    Text(when {
+                        !skill.enabled -> "已停用${if (selectedHere) "，本次对话不会使用" else ""}"
+                        skill.containsScripts -> "含脚本，仅读取说明与资料"
+                        else -> "仅读取说明与资料"
+                    }, style = MaterialTheme.typography.labelSmall, color = MutedInk)
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                         TextButton(onClick = { detail = if (detail == skill.sourceUrl) null else skill.sourceUrl }) { Text(if (detail == skill.sourceUrl) "收起" else "详情") }
-                        TextButton(enabled = !busy, onClick = { action(if (skill.enabled) "技能已停用" else "技能已启用") { runtime.enable(skill.sourceUrl, !skill.enabled) } }) { Text(if (skill.enabled) "停用" else "启用") }
-                        if (skill.sourceUrl.startsWith("https://")) TextButton(enabled = !busy, onClick = { action("技能版本已更新") { runtime.install(skill.sourceUrl) } }) { Text("更新") }
+                        // 停用一个已勾选的技能时，把勾选一起取消：否则勾着却不会生效，本身自相矛盾。
+                        TextButton(enabled = !busy, onClick = {
+                            action(if (skill.enabled) "技能已停用" else "技能已启用") {
+                                if (skill.enabled && conversationScope != null && skill.sourceUrl in selected) {
+                                    runtime.select(conversationScope, selected - skill.sourceUrl)
+                                }
+                                runtime.enable(skill.sourceUrl, !skill.enabled)
+                            }
+                        }) { Text(if (skill.enabled) "停用" else "启用") }
+                        if (skill.sourceUrl.startsWith("https://")) TextButton(enabled = !busy, onClick = { action("技能已更新") { runtime.install(skill.sourceUrl) } }) { Text("更新") }
                         TextButton(enabled = !busy, onClick = { deleting = skill }) { Text("删除") }
                     }
                     if (detail == skill.sourceUrl) {
@@ -128,7 +155,7 @@ fun SkillLibrarySheet(conversationScope: String?, onDismiss: () -> Unit) {
                 }
             }
         }
-        Text("安装不等于执行。技能只能使用当前会话已开放的工具；本地技能不会运行 Python 或 Shell。服务配置导出不包含技能包。",
+        Text("技能只会在需要时读取自己的说明与资料，不会在手机上运行代码。",
             style = MaterialTheme.typography.bodySmall, color = MutedInk)
     }
     deleting?.let { skill ->

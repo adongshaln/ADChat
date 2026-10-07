@@ -70,23 +70,19 @@ internal fun HtmlArtifactCard(
             }
             if (canPreview && !fullscreen) {
                 HtmlPreview(code, Modifier.fillMaxWidth().height(340.dp), allowScripts)
-            } else {
+            } else if (!fullscreen) {
+                // 只在真的看不到预览时才占位：能预览时那一行本来就只是重复信息。
                 Box(Modifier.fillMaxWidth().height(240.dp), contentAlignment = Alignment.Center) {
-                    Text(when {
-                        !ready -> "正在生成 HTML，完成后显示预览…"
-                        fullscreen -> "已在全屏中预览"
-                        else -> "文件较大，请保存后打开"
-                    }, color = MutedInk, style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(20.dp))
+                    Text(
+                        if (ready) "文件较大，保存后可用其他应用打开" else "正在生成预览…",
+                        color = MutedInk, style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.padding(20.dp)
+                    )
                 }
             }
 
             Row(Modifier.fillMaxWidth().padding(start = 12.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(when {
-                    !ready -> "正文完成后可预览"
-                    !canPreview -> "文件较大，请保存后打开"
-                    else -> if (allowScripts) "离线预览 · 支持内嵌脚本" else "安全预览 · 已禁用脚本和网络"
-                }, Modifier.weight(1f), style = MaterialTheme.typography.labelSmall, color = MutedInk)
+                Spacer(Modifier.weight(1f))
                 IconButton(onClick = {
                     context.getSystemService(ClipboardManager::class.java).setPrimaryClip(ClipData.newPlainText(filename, code))
                 }) { Icon(Icons.Rounded.ContentCopy, "复制 HTML 代码", tint = MutedInk, modifier = Modifier.size(18.dp)) }
@@ -172,7 +168,7 @@ private fun HtmlPreview(source: String, modifier: Modifier, allowScripts: Boolea
         }
     }
     if (view == null || failed) Box(modifier, contentAlignment = Alignment.Center) {
-        Text("预览不可用，可切换源码或保存文件", color = MutedInk)
+        Text("预览无法显示，可保存后用其他应用打开", color = MutedInk)
     } else AndroidView(
         factory = {
             view.apply {
