@@ -32,7 +32,9 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -44,6 +46,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.adong.adchat.data.ApiModel
 import com.adong.adchat.data.ApiProfile
+import com.adong.adchat.data.THEME_MODE_ASTER
+import com.adong.adchat.data.THEME_MODE_DARK
+import com.adong.adchat.data.THEME_MODE_SYSTEM
 import com.adong.adchat.data.IMAGE_API_MODE_AUTO
 import com.adong.adchat.data.IMAGE_API_MODE_GEMINI
 import com.adong.adchat.data.IMAGE_API_MODE_OPENAI
@@ -165,6 +170,18 @@ private fun SettingsHome(vm: MainViewModel, onOpenDrawer: () -> Unit, onEdit: (A
                         shape = RoundedCornerShape(15.dp), colors = editorFieldColors()
                     )
                     Text("修改自动保存，仅用于对话。", color = MutedInk, style = MaterialTheme.typography.labelMedium)
+                }
+            }
+            item {
+                SettingsDisclosure("外观", "浅色、深色或跟随系统", Icons.Rounded.Palette) {
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        ThemeModeCard("浅色", THEME_MODE_ASTER, AsterPaletteLight,
+                            vm.appConfig.themeMode, vm::setThemeMode, Modifier.weight(1f))
+                        ThemeModeCard("深色", THEME_MODE_DARK, AsterPaletteDark,
+                            vm.appConfig.themeMode, vm::setThemeMode, Modifier.weight(1f))
+                        ThemeModeCard("跟随系统", THEME_MODE_SYSTEM, null,
+                            vm.appConfig.themeMode, vm::setThemeMode, Modifier.weight(1f))
+                    }
                 }
             }
             item { com.adong.adchat.ui.components.SkillPickerEntry(null) }
@@ -1039,4 +1056,65 @@ private fun String.isImageLike(): Boolean {
         "novelai",
         "diffusion"
     ).any(id::contains)
+}
+
+/** 外观三选：卡内是各主题输入条的缩微模型，「跟随系统」并排画明暗两半。 */
+@Composable
+private fun ThemeModeCard(
+    label: String,
+    mode: String,
+    palette: com.adong.adchat.ui.theme.AsterPalette?,
+    currentMode: String,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val selected = currentMode == mode
+    val haptics = LocalHapticFeedback.current
+    Column(modifier) {
+        Surface(
+            onClick = {
+                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                onSelect(mode)
+            },
+            color = Canvas,
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(2.dp, if (selected) Accent else Hairline.copy(alpha = .55f)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (palette == null) {
+                Row(Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    MiniComposer(AsterPaletteLight, Modifier.weight(1f))
+                    MiniComposer(AsterPaletteDark, Modifier.weight(1f))
+                }
+            } else {
+                MiniComposer(palette, Modifier.fillMaxWidth().padding(8.dp))
+            }
+        }
+        Text(
+            label,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (selected) Accent else MutedInk,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().padding(top = 7.dp)
+        )
+    }
+}
+
+@Composable
+private fun MiniComposer(palette: com.adong.adchat.ui.theme.AsterPalette, modifier: Modifier = Modifier) {
+    Surface(color = palette.canvas, shape = RoundedCornerShape(12.dp), modifier = modifier) {
+        Surface(
+            color = palette.surface,
+            shape = RoundedCornerShape(9.dp),
+            border = BorderStroke(1.dp, palette.hairline.copy(alpha = .7f)),
+            modifier = Modifier.padding(7.dp).fillMaxWidth()
+        ) {
+            Row(Modifier.padding(horizontal = 9.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("写点什么…", style = MaterialTheme.typography.labelSmall, color = palette.mutedInk, modifier = Modifier.weight(1f))
+                Surface(color = palette.accent, shape = CircleShape, modifier = Modifier.size(16.dp)) {
+                    Icon(Icons.Rounded.ArrowUpward, null, Modifier.padding(4.dp), tint = palette.canvas)
+                }
+            }
+        }
+    }
 }

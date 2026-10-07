@@ -67,7 +67,15 @@ class MainActivity : ComponentActivity() {
         pendingMediaShare = extractSharedMediaText(intent)
         enableEdgeToEdge()
         setContent {
-            AsterTheme {
+            val themeMode = viewModel.appConfig.themeMode
+            val dark = com.adong.adchat.ui.theme.themeIsDark(themeMode)
+            LaunchedEffect(dark) {
+                enableEdgeToEdge(
+                    statusBarStyle = if (dark) androidx.activity.SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
+                                     else androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
+                )
+            }
+            AsterTheme(themeMode = themeMode) {
                 AsterApp(
                     vm = viewModel,
                     incomingMediaText = pendingMediaShare,

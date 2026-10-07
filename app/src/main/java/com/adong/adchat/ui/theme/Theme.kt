@@ -1,11 +1,15 @@
-﻿package com.adong.adchat.ui.theme
+package com.adong.adchat.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.Shapes
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
@@ -14,50 +18,132 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import com.adong.adchat.data.THEME_MODE_ASTER
+import com.adong.adchat.data.THEME_MODE_DARK
+import com.adong.adchat.data.THEME_MODE_SYSTEM
 
-val Canvas = Color(0xFFF6F3EE)
-val Surface = Color(0xFFFFFDFA)
-val Ink = Color(0xFF302C28)
-val MutedInk = Color(0xFF787169)
-val Hairline = Color(0xFFE6E0D7)
-val Accent = Color(0xFF8B5E4B)
-val AccentSoft = Color(0xFFF0E5DC)
-val Sage = Color(0xFF586B56)
-val SageSoft = Color(0xFFE8EDE3)
-val SurfaceInset = Color(0xFFEEE9E1)
-val WarmWhite = Color(0xFFFFF9F0)
-val Danger = Color(0xFFB33A32)
-val DangerSoft = Color(0xFFFFE8E5)
-val Night = Color(0xFF352F2A)
-val QuoteAmber = Color(0xFF9A6B12)
-val BracketBlue = Color(0xFF6292B3)
+/**
+ * 全部颜色按语义命名；界面代码只认语义名，不感知明暗。
+ * 深色不是另一套设计：同一段布局与组件，只换调色板实例。
+ */
+@Immutable
+data class AsterPalette(
+    val canvas: Color,
+    val surface: Color,
+    val ink: Color,
+    val mutedInk: Color,
+    val hairline: Color,
+    val accent: Color,
+    val accentSoft: Color,
+    val sage: Color,
+    val sageSoft: Color,
+    val surfaceInset: Color,
+    val warmWhite: Color,
+    val danger: Color,
+    val dangerSoft: Color,
+    val night: Color,
+    val quoteAmber: Color,
+    val bracketBlue: Color,
+    val amberSoft: Color
+)
 
-private val colors = lightColorScheme(
-    primary = Ink,
-    onPrimary = WarmWhite,
-    primaryContainer = AccentSoft,
-    onPrimaryContainer = Ink,
-    secondary = Accent,
+val AsterPaletteLight = AsterPalette(
+    canvas = Color(0xFFF6F3EE),
+    surface = Color(0xFFFFFDFA),
+    ink = Color(0xFF302C28),
+    mutedInk = Color(0xFF787169),
+    hairline = Color(0xFFE6E0D7),
+    accent = Color(0xFF8B5E4B),
+    accentSoft = Color(0xFFF0E5DC),
+    sage = Color(0xFF586B56),
+    sageSoft = Color(0xFFE8EDE3),
+    surfaceInset = Color(0xFFEEE9E1),
+    warmWhite = Color(0xFFFFF9F0),
+    danger = Color(0xFFB33A32),
+    dangerSoft = Color(0xFFFFE8E5),
+    night = Color(0xFF352F2A),
+    quoteAmber = Color(0xFF9A6B12),
+    bracketBlue = Color(0xFF6292B3),
+    amberSoft = Color(0xFFFFF1D8)
+)
+
+/** 暖调深色：与浅色同一套语义，仅数值不同。night 比画布更深，保住「深色强调面」语义。 */
+val AsterPaletteDark = AsterPalette(
+    canvas = Color(0xFF171512),
+    surface = Color(0xFF201E1B),
+    ink = Color(0xFFECE7DF),
+    mutedInk = Color(0xFFA39C92),
+    hairline = Color(0xFF35312C),
+    accent = Color(0xFFC08B72),
+    accentSoft = Color(0xFF3A2E27),
+    sage = Color(0xFF93A88B),
+    sageSoft = Color(0xFF262E24),
+    surfaceInset = Color(0xFF2A2724),
+    warmWhite = Color(0xFF1A1815),
+    danger = Color(0xFFE07A6F),
+    dangerSoft = Color(0xFF46231F),
+    night = Color(0xFF0F0E0C),
+    quoteAmber = Color(0xFFD9A94E),
+    bracketBlue = Color(0xFF8FB5D6),
+    amberSoft = Color(0xFF43301C)
+)
+
+val LocalAsterPalette = staticCompositionLocalOf { AsterPaletteLight }
+val LocalThemeMode = staticCompositionLocalOf { THEME_MODE_ASTER }
+val LocalThemeDark = staticCompositionLocalOf { false }
+
+@Composable
+fun themeIsDark(themeMode: String): Boolean = when (themeMode) {
+    THEME_MODE_DARK -> true
+    THEME_MODE_SYSTEM -> isSystemInDarkTheme()
+    else -> false
+}
+
+// 兼容层：沿用历史常量名，取值来自当前调色板。只能在组合上下文读取。
+val Canvas @Composable get() = LocalAsterPalette.current.canvas
+val Surface @Composable get() = LocalAsterPalette.current.surface
+val Ink @Composable get() = LocalAsterPalette.current.ink
+val MutedInk @Composable get() = LocalAsterPalette.current.mutedInk
+val Hairline @Composable get() = LocalAsterPalette.current.hairline
+val Accent @Composable get() = LocalAsterPalette.current.accent
+val AccentSoft @Composable get() = LocalAsterPalette.current.accentSoft
+val Sage @Composable get() = LocalAsterPalette.current.sage
+val SageSoft @Composable get() = LocalAsterPalette.current.sageSoft
+val SurfaceInset @Composable get() = LocalAsterPalette.current.surfaceInset
+val WarmWhite @Composable get() = LocalAsterPalette.current.warmWhite
+val Danger @Composable get() = LocalAsterPalette.current.danger
+val DangerSoft @Composable get() = LocalAsterPalette.current.dangerSoft
+val Night @Composable get() = LocalAsterPalette.current.night
+val QuoteAmber @Composable get() = LocalAsterPalette.current.quoteAmber
+val BracketBlue @Composable get() = LocalAsterPalette.current.bracketBlue
+val AmberSoft @Composable get() = LocalAsterPalette.current.amberSoft
+
+private fun AsterPalette.toColorScheme() = lightColorScheme(
+    primary = ink,
+    onPrimary = warmWhite,
+    primaryContainer = accentSoft,
+    onPrimaryContainer = ink,
+    secondary = accent,
     onSecondary = Color.White,
-    secondaryContainer = AccentSoft,
-    onSecondaryContainer = Accent,
-    tertiary = Sage,
-    tertiaryContainer = SageSoft,
-    onTertiaryContainer = Sage,
-    background = Canvas,
-    onBackground = Ink,
-    surface = Surface,
-    onSurface = Ink,
-    surfaceVariant = SurfaceInset,
-    onSurfaceVariant = MutedInk,
-    outline = Hairline,
-    outlineVariant = Hairline,
+    secondaryContainer = accentSoft,
+    onSecondaryContainer = accent,
+    tertiary = sage,
+    tertiaryContainer = sageSoft,
+    onTertiaryContainer = sage,
+    background = canvas,
+    onBackground = ink,
+    surface = surface,
+    onSurface = ink,
+    surfaceVariant = surfaceInset,
+    onSurfaceVariant = mutedInk,
+    outline = hairline,
+    outlineVariant = hairline,
     surfaceTint = Color.Transparent,
-    surfaceContainer = Canvas,
-    surfaceContainerLow = Surface,
-    surfaceContainerHigh = SurfaceInset,
-    error = Danger,
-    errorContainer = DangerSoft
+    surfaceContainer = canvas,
+    surfaceContainerLow = surface,
+    surfaceContainerHigh = surfaceInset,
+    error = danger,
+    errorContainer = dangerSoft
 )
 
 private val typography = Typography(
@@ -85,16 +171,26 @@ private val typography = Typography(
     labelSmall = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp)
 )
 
+private val shapes = Shapes(
+    extraSmall = RoundedCornerShape(8.dp), small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp),
+    extraLarge = RoundedCornerShape(28.dp)
+)
+
 @Composable
-fun AsterTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = colors,
-        typography = typography,
-        shapes = Shapes(
-            extraSmall = RoundedCornerShape(8.dp), small = RoundedCornerShape(12.dp),
-            medium = RoundedCornerShape(18.dp), large = RoundedCornerShape(24.dp),
-            extraLarge = RoundedCornerShape(28.dp)
-        ),
-        content = content
-    )
+fun AsterTheme(themeMode: String = THEME_MODE_ASTER, content: @Composable () -> Unit) {
+    val dark = themeIsDark(themeMode)
+    val palette = if (dark) AsterPaletteDark else AsterPaletteLight
+    CompositionLocalProvider(
+        LocalAsterPalette provides palette,
+        LocalThemeMode provides themeMode,
+        LocalThemeDark provides dark
+    ) {
+        MaterialTheme(
+            colorScheme = palette.toColorScheme(),
+            typography = typography,
+            shapes = shapes,
+            content = content
+        )
+    }
 }

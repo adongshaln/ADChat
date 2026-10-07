@@ -80,6 +80,10 @@ fun ApiProfile.invalidExtraHeaderLines(): List<String> = extraHeaders.lineSequen
     }
     .toList()
 
+const val THEME_MODE_ASTER = "aster"
+const val THEME_MODE_DARK = "dark"
+const val THEME_MODE_SYSTEM = "system"
+
 data class AppConfig(
     val profiles: List<ApiProfile>,
     val activeChatProfileId: String,
@@ -87,7 +91,8 @@ data class AppConfig(
     val activeMangaAnalysisProfileId: String = activeChatProfileId,
     val activeSearchProfileId: String = activeChatProfileId,
     val allowXSearch: Boolean = false,
-    val systemPrompt: String = DEFAULT_SYSTEM_PROMPT
+    val systemPrompt: String = DEFAULT_SYSTEM_PROMPT,
+    val themeMode: String = THEME_MODE_ASTER
 ) {
     fun chatProfile(): ApiProfile = profiles.firstOrNull { it.id == activeChatProfileId } ?: profiles.first()
     fun imageProfile(): ApiProfile = profiles.firstOrNull { it.id == activeImageProfileId } ?: profiles.first()
@@ -182,6 +187,7 @@ class ConfigStore(context: Context) {
         .put("activeSearchProfileId", config.activeSearchProfileId)
         .put("allowXSearch", config.allowXSearch)
         .put("systemPrompt", config.systemPrompt)
+        .put("themeMode", config.themeMode)
         .put("profiles", JSONArray().apply {
             config.profiles.forEach { profile ->
                 put(JSONObject()
@@ -264,7 +270,8 @@ class ConfigStore(context: Context) {
                 ?: root.optString("activeChatProfileId").takeIf { id -> profiles.any { it.id == id } }
                 ?: profiles.first().id,
             allowXSearch = root.optBoolean("allowXSearch", false),
-            systemPrompt = migrateSystemPrompt(root.optString("systemPrompt").ifBlank { DEFAULT_SYSTEM_PROMPT })
+            systemPrompt = migrateSystemPrompt(root.optString("systemPrompt").ifBlank { DEFAULT_SYSTEM_PROMPT }),
+            themeMode = root.optString("themeMode").takeIf { it in setOf(THEME_MODE_DARK, THEME_MODE_SYSTEM) } ?: THEME_MODE_ASTER
         )
     }
 

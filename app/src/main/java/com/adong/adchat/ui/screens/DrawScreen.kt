@@ -764,13 +764,13 @@ private fun GenerationStatus(
                     progress = { (batchCompleted.toFloat() / batchTotal.toFloat()).coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
                     color = Accent,
-                    trackColor = Color(0xFFF3CDC3)
+                    trackColor = AccentSoft
                 )
             } else {
                 LinearProgressIndicator(
                     modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
                     color = Accent,
-                    trackColor = Color(0xFFF3CDC3)
+                    trackColor = AccentSoft
                 )
             }
         }
@@ -833,7 +833,7 @@ private fun CanvasChoiceCard(value: String, label: String, selected: Boolean, on
                     "2:3" -> Modifier.width(24.dp).height(34.dp)
                     else -> Modifier.size(30.dp)
                 }
-                Box(frame.clip(RoundedCornerShape(5.dp)).background(if (selected) Accent else Color(0xFFD8D3CC)))
+                Box(frame.clip(RoundedCornerShape(5.dp)).background(if (selected) Accent else SurfaceInset))
                 if (selected) Box(Modifier.align(Alignment.TopEnd).padding(end = 9.dp).size(17.dp).clip(CircleShape).background(Accent), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Check, null, Modifier.size(12.dp), tint = Color.White) }
             }
             Spacer(Modifier.height(7.dp))
@@ -897,7 +897,7 @@ private fun MangaArtworkSeriesCard(
                         ) {
                             collection.images.take(4).forEach { image ->
                                 Box(
-                                    Modifier.weight(1f).fillMaxHeight().background(Color(0xFFE9E5DF))
+                                    Modifier.weight(1f).fillMaxHeight().background(SurfaceInset)
                                         .clickable { onPreview(image) },
                                     contentAlignment = Alignment.Center
                                 ) {
@@ -979,7 +979,7 @@ private fun ArtworkCard(
         Column {
             Box(
                 Modifier.fillMaxWidth().aspectRatio(ratio).clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
-                    .background(Color(0xFFE9E5DF)).clickable(onClick = onPreview),
+                    .background(SurfaceInset).clickable(onClick = onPreview),
                 contentAlignment = Alignment.Center
             ) {
                 AsyncImage(
