@@ -140,8 +140,15 @@ private fun AsterApp(vm: MainViewModel, incomingMediaText: String?, onMediaTextC
 
     LaunchedEffect(vm.notice) {
         val message = vm.notice ?: return@LaunchedEffect
+        // 删除会话走长时长 + 撤销动作；其余提示保持短时长。
+        val action = if (message == "已删除对话" && vm.recentlyDeletedConversation != null) "撤销" else null
         snackbarHostState.currentSnackbarData?.dismiss()
-        snackbarHostState.showSnackbar(message = message, duration = SnackbarDuration.Short)
+        val result = snackbarHostState.showSnackbar(
+            message = message,
+            actionLabel = action,
+            duration = if (action != null) SnackbarDuration.Long else SnackbarDuration.Short
+        )
+        if (result == SnackbarResult.ActionPerformed) vm.undoDeleteConversation()
         if (vm.notice == message) vm.dismissNotice()
     }
 
@@ -212,7 +219,12 @@ private fun AsterApp(vm: MainViewModel, incomingMediaText: String?, onMediaTextC
                     ) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Text(data.visuals.message, Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-                            Spacer(Modifier.width(12.dp))
+                            data.visuals.actionLabel?.let { action ->
+                                TextButton(onClick = { data.performAction() }) {
+                                    Text(action, color = Color.White, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Spacer(Modifier.width(if (data.visuals.actionLabel != null) 2.dp else 12.dp))
                             Icon(Icons.Rounded.Close, "关闭提示", Modifier.size(18.dp), tint = Color.White.copy(alpha = .82f))
                         }
                     }

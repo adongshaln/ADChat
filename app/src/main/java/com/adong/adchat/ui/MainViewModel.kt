@@ -709,7 +709,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ?.let(chatAttachments::removeAt)
     }
 
-    fun sendMessage(textOverride: String? = null) {
+    fun sendMessage(textOverride: String? = null, assistantSeed: ChatMessage? = null) {
         val fromComposer = textOverride == null
         val text = (textOverride ?: chatInput).trim()
         if ((text.isEmpty() && (textOverride != null || chatAttachments.isEmpty())) || isChatLoading || isChatAttachmentLoading) return
@@ -726,7 +726,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val assistantId = System.nanoTime()
         val streamingMessage = ChatMessage(
             id = assistantId, role = "assistant", content = "", isStreaming = true,
-            profileName = profile.name, model = model
+            profileName = profile.name, model = model,
+            previousContent = assistantSeed?.previousContent.orEmpty(),
+            previousReasoning = assistantSeed?.previousReasoning.orEmpty()
         )
         messages += streamingMessage
         val recoveryConversationId = activeConversationId ?: profile.id
@@ -971,10 +973,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (assistant.role != "assistant" || assistant.isStreaming || assistant.isInterrupted || assistant.isStopped) return
         val userIndex = (assistantIndex - 1 downTo 0).firstOrNull { messages[it].role == "user" } ?: return
         val prompt = messages[userIndex].content
+        // 旧回复整体带进新消息，详情里可回看，避免「重试更差」时无从比较。
+        val stash = assistant.copy(previousContent = assistant.content, previousReasoning = assistant.reasoning)
         messages.removeAt(assistantIndex)
         messages.removeAt(userIndex)
         persistCurrentConversation()
-        sendMessage(prompt)
+        sendMessage(prompt, assistantSeed = stash)
+    }
+
+    /** 编辑重发：移除该条用户消息及其后的全部对话，正文载入输入框等待修改。 */
+    fun editUserMessage(messageId: Long) {
+        if (isChatLoading) {
+            notice = "请等待当前回复完成后再编辑"
+            return
+        }
+        val index = messages.indexOfFirst { it.id == messageId }
+        if (index < 0 || messages[index].role != "user") return
+        val content = messages[index].content
+        stashCurrentDraft()
+        messages.removeRange(index, messages.size)
+        chatInput = content
+        scheduleSessionSave(immediate = true)
+        persistCurrentConversation()
+        notice = "已载入该条消息，编辑后重新发送"
     }
 
     fun retryMessage(messageId: Long) {
@@ -1039,7 +1060,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
         val index = conversations.indexOfFirst { it.id == id }
         if (index < 0) return
-        conversations.removeAt(index)
+        recentlyDeletedDraft = chatDrafts[id].orEmpty()
+        recentlyDeletedConversation = conversations.removeAt(index) to index
         chatDrafts.remove(id)
         if (activeConversationId == id) {
             activeConversationId = null
@@ -1050,6 +1072,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         scheduleConversationSave(conversations.toList())
         scheduleSessionSave(immediate = true)
         notice = "已删除对话"
+    }
+
+    /** 最近一次删除的会话与其在列表中的位置，供 Snackbar 撤销；再次删除会覆盖之前的。 */
+    var recentlyDeletedConversation by mutableStateOf<Pair<Conversation, Int>?>(null)
+        private set
+    private var recentlyDeletedDraft: String = ""
+
+    fun undoDeleteConversation() {
+        val (conversation, index) = recentlyDeletedConversation ?: return
+        recentlyDeletedConversation = null
+        conversations.add(index.coerceAtMost(conversations.size), conversation)
+        if (recentlyDeletedDraft.isNotBlank()) chatDrafts[conversation.id] = recentlyDeletedDraft
+        recentlyDeletedDraft = ""
+        scheduleConversationSave(conversations.toList())
+        notice = "已恢复对话"
     }
 
     fun renameConversation(id: String, title: String) {

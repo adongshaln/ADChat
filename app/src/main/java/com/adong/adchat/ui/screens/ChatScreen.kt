@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -114,6 +115,9 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
     }
     var showSwitcher by remember { mutableStateOf(false) }
     var showContextDialog by remember { mutableStateOf(false) }
+    var editCandidate by remember { mutableStateOf<com.adong.adchat.data.ChatMessage?>(null) }
+    var pendingEditResend by remember { mutableStateOf<com.adong.adchat.data.ChatMessage?>(null) }
+    val hostContext = LocalContext.current
     val contextModel = vm.chatProfile.chatModel
     val contextLimits = vm.chatProfile.modelContexts[contextModel.trim()]
     // 估算要走整段历史，放在后台算，避免每次重组都卡一帧；初值不为空，点进度圈立刻有反应；
@@ -291,6 +295,8 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                                 canRegenerate = message.id == regeneratableMessageId,
                                 onRetry = { vm.retryMessage(message.id) },
                                 onRegenerate = { vm.regenerateMessage(message.id) },
+                                onEditResend = { editCandidate = message },
+                                onConfigureContext = { showContextDialog = true },
                                 onSaveFile = { file ->
                                     pendingFileExport = file
                                     fileExportLauncher.launch(Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
@@ -363,6 +369,49 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                 )
             }
         }
+    }
+    editCandidate?.let { candidate ->
+        val index = vm.messages.indexOfFirst { it.id == candidate.id }
+        val removedAfter = (vm.messages.size - index - 1).coerceAtLeast(0)
+        AdActionSheet(
+            title = "这条消息",
+            subtitle = if (removedAfter > 0) "编辑重发会移除其后的 $removedAfter 条对话" else "编辑后重新发送",
+            actions = listOf(
+                AdActionOption("edit", "编辑重发", "载入输入框，修改后重新发送", Icons.Rounded.Edit),
+                AdActionOption("copy", "复制", "复制消息原文", Icons.Rounded.ContentCopy)
+            ),
+            onAction = { action ->
+                when (action.id) {
+                    "copy" -> {
+                        editCandidate = null
+                        hostContext.getSystemService(android.content.ClipboardManager::class.java)
+                            .setPrimaryClip(android.content.ClipData.newPlainText("Aster", candidate.content))
+                    }
+                    "edit" -> {
+                        editCandidate = null
+                        if (removedAfter > 0) pendingEditResend = candidate else vm.editUserMessage(candidate.id)
+                    }
+                }
+            },
+            onDismiss = { editCandidate = null }
+        )
+    }
+    pendingEditResend?.let { candidate ->
+        val index = vm.messages.indexOfFirst { it.id == candidate.id }
+        val removedAfter = (vm.messages.size - index - 1).coerceAtLeast(0)
+        AdConfirmDialog(
+            title = "编辑重发？",
+            message = "这条消息之后的 $removedAfter 条对话会被移除（本地记录不保留），正文将载入输入框。",
+            confirmLabel = "编辑重发",
+            dismissLabel = "取消",
+            icon = Icons.Rounded.Edit,
+            onConfirm = {
+                pendingEditResend = null
+                vm.editUserMessage(candidate.id)
+                composerFocusRequester.requestFocus()
+            },
+            onDismiss = { pendingEditResend = null }
+        )
     }
     if (showSwitcher) {
         QuickModelSwitcher(kind = RouteKind.Chat, vm = vm, onDismiss = { showSwitcher = false }, onManageApis = onOpenSettings)
@@ -443,6 +492,8 @@ private fun ChatMessageItem(
     onSaveFile: (ChatFileAttachment) -> Unit,
     onStreamingTextAdvanced: () -> Unit,
     onDetailsExpanded: () -> Unit,
+    onEditResend: () -> Unit = {},
+    onConfigureContext: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val user = message.role == "user"
@@ -464,7 +515,12 @@ private fun ChatMessageItem(
             horizontalAlignment = if (user) Alignment.End else Alignment.Start
         ) {
             if (user) {
-                Surface(color = SurfaceInset, contentColor = Ink, shape = RoundedCornerShape(22.dp, 22.dp, 8.dp, 22.dp)) {
+                Surface(
+                    color = SurfaceInset, contentColor = Ink, shape = RoundedCornerShape(22.dp, 22.dp, 8.dp, 22.dp),
+                    modifier = Modifier.pointerInput(message.id) {
+                        detectTapGestures(onLongPress = { onEditResend() })
+                    }
+                ) {
                     Column(Modifier.padding(7.dp)) {
                         if (message.attachments.isNotEmpty()) {
                             ConversationImages(message.attachments)
@@ -542,6 +598,9 @@ private fun ChatMessageItem(
                             ConversationCopyAction(message.content)
                             if (message.isError) {
                                 ConversationMessageAction(Icons.Rounded.Refresh, "重试", onRetry)
+                                if (message.content.contains("上下文预算")) {
+                                    ConversationMessageAction(Icons.Rounded.Tune, "调整上下文", onConfigureContext, accent = true)
+                                }
                             } else if (message.isInterrupted || message.isStopped) {
                                 ConversationMessageAction(Icons.Rounded.PlayArrow, "继续生成", onRetry)
                             } else if (canRegenerate) {
@@ -565,6 +624,27 @@ private fun ChatMessageItem(
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
                                     )
+                                }
+                                if (message.previousContent.isNotBlank()) {
+                                    var showPrevious by remember(message.id) { mutableStateOf(false) }
+                                    ConversationMessageAction(
+                                        Icons.Rounded.History, if (showPrevious) "收起上一版" else "查看上一版",
+                                        { showPrevious = !showPrevious }, accent = showPrevious
+                                    )
+                                    AnimatedVisibility(showPrevious) {
+                                        Surface(
+                                            color = SurfaceInset.copy(alpha = .7f), contentColor = Ink,
+                                            shape = RoundedCornerShape(13.dp),
+                                            modifier = Modifier.fillMaxWidth().padding(top = 7.dp)
+                                        ) {
+                                            Text(
+                                                message.previousContent,
+                                                Modifier.padding(11.dp),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MutedInk
+                                            )
+                                        }
+                                    }
                                 }
                                 message.usage?.takeIf { it.inputTokens > 0 || it.outputTokens > 0 || it.cachedTokens > 0 }?.let { usage ->
                                     TokenUsagePanel(usage = usage)

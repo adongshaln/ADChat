@@ -401,7 +401,9 @@ data class ChatMessage(
     val usage: TokenUsage? = null,
     val citations: List<ChatCitation> = emptyList(),
     val generatedFiles: List<ChatFileAttachment> = emptyList(),
-    val toolActivities: List<ChatToolActivity> = emptyList()
+    val toolActivities: List<ChatToolActivity> = emptyList(),
+    val previousContent: String = "",
+    val previousReasoning: String = ""
 )
 
 data class GeneratedFileDraft(
