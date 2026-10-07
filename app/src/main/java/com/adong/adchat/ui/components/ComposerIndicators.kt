@@ -45,11 +45,11 @@ fun ComposerContextRing(
         animationSpec = tween(220),
         label = "context-ring"
     )
-    IconButton(onClick = onClick, modifier = modifier.size(44.dp)) {
-        Box(Modifier.size(30.dp), contentAlignment = Alignment.Center) {
+    IconButton(onClick = onClick, modifier = modifier.size(48.dp)) {
+        Box(Modifier.size(48.dp), contentAlignment = Alignment.Center) {
             CircularProgressIndicator(
                 progress = { progress },
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.size(30.dp),
                 color = tint,
                 trackColor = Hairline.copy(alpha = .55f),
                 strokeWidth = 3.dp
@@ -57,7 +57,7 @@ fun ComposerContextRing(
             Text(
                 if (configured) "$percent%" else "--",
                 color = tint,
-                fontSize = 10.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.Medium
             )
         }
@@ -73,10 +73,11 @@ fun ComposerReasoningButton(
     modifier: Modifier = Modifier
 ) {
     val tint = if (detailed) Accent else MutedInk
-    IconButton(onClick = onClick, modifier = modifier.size(44.dp)) {
+    IconButton(onClick = onClick, modifier = modifier.size(48.dp)) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(Icons.Rounded.Psychology, null, Modifier.size(21.dp), tint = tint)
-            Text(label, color = tint, fontSize = 9.sp, maxLines = 1)
+            // 档位名是功能状态，不能小于 labelSmall(11sp)：读错就会选错思考强度。
+            Text(label, color = tint, fontSize = 11.sp, maxLines = 1)
         }
     }
 }

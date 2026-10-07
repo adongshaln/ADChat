@@ -166,10 +166,15 @@ fun ConversationComposer(
                         imeAction = ImeAction.Send
                     ),
                     keyboardActions = KeyboardActions(onSend = {
-                        if (enabledToSend && !loading && !attachmentLoading) {
-                            haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                            focus.clearFocus()
-                            onSend()
+                        // 生成中键盘发送键和它下面那个按钮必须是同一个行为（停止），
+                        // 否则用户按发送什么都没发生，看起来像卡死。
+                        when {
+                            loading -> onStop()
+                            enabledToSend && !attachmentLoading -> {
+                                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                focus.clearFocus()
+                                onSend()
+                            }
                         }
                     }),
                     decorationBox = { innerTextField ->
@@ -182,7 +187,10 @@ fun ConversationComposer(
                     }
                 )
                 Row(
-                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(58.dp).padding(6.dp),
+                    // 48dp 主控按钮放进 60dp 行高，纵向留 6dp；三个按钮之间留 2dp 间隙。
+                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(60.dp)
+                        .padding(horizontal = 2.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(
@@ -191,7 +199,7 @@ fun ConversationComposer(
                             onOptionsClick()
                         },
                         enabled = !loading && !attachmentLoading,
-                        modifier = Modifier.size(46.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
                         if (attachmentLoading) {
                             CircularProgressIndicator(Modifier.size(19.dp), color = Accent, strokeWidth = 2.dp)
@@ -213,7 +221,7 @@ fun ConversationComposer(
                             editorOpen = true
                             focus.clearFocus()
                             fieldValue = retained
-                        }, modifier = Modifier.size(46.dp)) {
+                        }, modifier = Modifier.size(48.dp)) {
                             Icon(Icons.Rounded.OpenInFull, "展开草稿", Modifier.size(21.dp), tint = MutedInk)
                         }
                     }
@@ -226,7 +234,7 @@ fun ConversationComposer(
                             }
                         },
                         enabled = loading || (enabledToSend && !attachmentLoading),
-                        modifier = Modifier.size(46.dp),
+                        modifier = Modifier.size(48.dp),
                         shape = CircleShape,
                         colors = IconButtonDefaults.filledIconButtonColors(
                             containerColor = Night,
@@ -265,8 +273,9 @@ fun ConversationThinkingIndicator() {
         label = "aster-thinking-motion"
     )
     val subtitleAlpha by transition.animateFloat(
-        initialValue = .58f,
-        targetValue = .86f,
+        // 呼吸下限不低于 .72：再低这行小字在浅色画布上就模糊到读不出了。
+        initialValue = .74f,
+        targetValue = .94f,
         animationSpec = infiniteRepeatable(tween(900), repeatMode = RepeatMode.Reverse),
         label = "aster-thinking-subtitle"
     )
@@ -382,16 +391,17 @@ fun ConversationMessageAction(
     onClick: () -> Unit,
     accent: Boolean = false
 ) {
-    // 图标化 + 45% 透明度：动作行不与正文抢注意力；label 仅供无障碍与长按语义。
+    // 图标化让动作行不与正文抢注意力，但热区仍是 48dp（图标视觉保持小），
+    // 文字对比度也要够：45% 墨色在浅色画布上接近 2.5:1，属于「看得见但读不出」。
     Surface(
         onClick = onClick,
         color = Color.Transparent,
-        contentColor = if (accent) Accent else Ink.copy(alpha = .45f),
+        contentColor = if (accent) Accent else Ink.copy(alpha = .72f),
         shape = RoundedCornerShape(10.dp),
-        modifier = Modifier.size(36.dp)
+        modifier = Modifier.size(48.dp)
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(icon, contentDescription = label, modifier = Modifier.size(18.dp))
+            Icon(icon, contentDescription = label, modifier = Modifier.size(19.dp))
         }
     }
 }
@@ -465,13 +475,13 @@ fun ConversationSheetAction(
         onClick = onClick,
         enabled = enabled,
         color = Surface,
-        contentColor = if (enabled) Ink else MutedInk.copy(alpha = .45f),
+        contentColor = if (enabled) Ink else MutedInk,
         shape = RoundedCornerShape(16.dp),
         border = BorderStroke(1.dp, Hairline.copy(alpha = .75f)),
         modifier = modifier
     ) {
         Column(Modifier.heightIn(min = 84.dp).padding(horizontal = 8.dp, vertical = 13.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Icon(icon, null, Modifier.size(22.dp), tint = if (enabled) Accent else MutedInk.copy(alpha = .4f))
+            Icon(icon, null, Modifier.size(22.dp), tint = if (enabled) Accent else MutedInk)
             Spacer(Modifier.height(6.dp))
             Text(label, style = MaterialTheme.typography.labelLarge)
             detail?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MutedInk, textAlign = TextAlign.Center) }

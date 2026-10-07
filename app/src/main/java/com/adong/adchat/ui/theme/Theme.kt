@@ -51,7 +51,10 @@ val AsterPaletteLight = AsterPalette(
     canvas = Color(0xFFF6F3EE),
     surface = Color(0xFFFFFDFA),
     ink = Color(0xFF302C28),
-    mutedInk = Color(0xFF787169),
+    // 辅助文字在浅色画布上要过 4.5:1。#787169 实测只有 4.35:1，压到 surfaceInset 上更低，
+    // 再叠 alpha 的（禁用态、分隔符）几乎看不见。降到 #6B6459 后 canvas 5.28:1、
+    // surfaceInset 4.84:1。深色板不受影响。
+    mutedInk = Color(0xFF6B6459),
     hairline = Color(0xFFE6E0D7),
     accent = Color(0xFF8B5E4B),
     accentSoft = Color(0xFFF0E5DC),
@@ -163,6 +166,15 @@ private val typography = Typography(
         fontFamily = FontFamily.SansSerif,
         fontSize = 14.sp,
         lineHeight = 22.sp,
+        platformStyle = PlatformTextStyle(includeFontPadding = false),
+        lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
+    ),
+    // 全站约 20 处说明性小字都在用 bodySmall，不定义就会悄悄回落到 M3 默认值
+    // （12sp / 16sp 行高），两行说明放不下。这里把它显式定下来。
+    bodySmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontSize = 12.sp,
+        lineHeight = 18.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
         lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
     ),

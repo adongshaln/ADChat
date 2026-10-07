@@ -234,14 +234,16 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
 
     LaunchedEffect(composerFocused, vm.activeConversationId) {
         if (!composerFocused) return@LaunchedEffect
-        autoFollow = true
+        // 只在用户本来就在看底部时才跟随键盘：回看历史时一碰输入框就被拽回末尾，
+        // 阅读位置丢了，还得自己滚回来。
+        autoFollow = listState.isCloseToBottom()
 
         snapshotFlow {
             imeInsets.getBottom(density) to imeAnimationTarget.getBottom(density)
         }
             .distinctUntilChanged()
             .collect { (imeBottom, imeTargetBottom) ->
-                if (vm.messages.isNotEmpty()) {
+                if (vm.messages.isNotEmpty() && autoFollow && !userDragging) {
                     // Preserve the accepted IME behaviour: the conversation follows every inset
                     // update so keyboard and content move together rather than serially.
                     listState.scrollToItem(vm.messages.size)
@@ -412,9 +414,15 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
     pendingEditResend?.let { candidate ->
         val index = vm.messages.indexOfFirst { it.id == candidate.id }
         val removedAfter = (vm.messages.size - index - 1).coerceAtLeast(0)
+        // 三个后果都要摆出来：后续消息没了、图片会一起载回、输入框当前草稿被替换。
+        val images = candidate.attachments.size
         AdConfirmDialog(
             title = "编辑重发？",
-            message = "这条消息之后的 $removedAfter 条对话会被移除（本地记录不保留），正文将载入输入框。",
+            message = buildString {
+                append("这条消息之后的 $removedAfter 条对话会被移除（本地记录不保留）。")
+                if (images > 0) append("其中的 $images 张图片会和正文一起载回输入框。")
+                append("输入框当前的草稿会被这条消息的原文替换。")
+            },
             confirmLabel = "编辑重发",
             dismissLabel = "取消",
             icon = Icons.Rounded.Edit,
@@ -511,6 +519,21 @@ private fun ChatMessageItem(
     modifier: Modifier = Modifier
 ) {
     val user = message.role == "user"
+    if (message.isContinuation) {
+        // 「继续生成」的指令是应用代发的，用户从没打过这行字：渲染成居中状态条，
+        // 不冒充用户气泡，也不占阅读流的位置。
+        Box(modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+            Surface(color = SurfaceInset, shape = RoundedCornerShape(12.dp)) {
+                Text(
+                    "已请求从上一处继续生成",
+                    color = MutedInk,
+                    style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.padding(horizontal = 11.dp, vertical = 6.dp)
+                )
+            }
+        }
+        return
+    }
     val waitingForFirstToken = !user && message.content.isBlank() && message.isStreaming
     val context = LocalContext.current
     var showDetails by remember(message.id) { mutableStateOf(false) }
@@ -1141,8 +1164,8 @@ private fun CodeBlock(language: String?, code: String, selectable: Boolean) {
                 Text(language?.uppercase() ?: "CODE", color = Color(0xFFAAA49D), style = MaterialTheme.typography.labelSmall, modifier = Modifier.weight(1f))
                 IconButton(
                     onClick = { context.getSystemService(android.content.ClipboardManager::class.java).setPrimaryClip(android.content.ClipData.newPlainText("code", code)) },
-                    modifier = Modifier.size(32.dp)
-                ) { Icon(Icons.Outlined.ContentCopy, "复制代码", Modifier.size(15.dp), tint = Color(0xFFCCC6BE)) }
+                    modifier = Modifier.size(48.dp)
+                ) { Icon(Icons.Outlined.ContentCopy, "复制代码", Modifier.size(16.dp), tint = Color(0xFFCCC6BE)) }
             }
             val contentBlock: @Composable () -> Unit = {
                 Text(code, fontFamily = FontFamily.Monospace, fontSize = 13.sp, lineHeight = 20.sp, modifier = Modifier.horizontalScroll(rememberScrollState()).padding(start = 13.dp, end = 13.dp, bottom = 13.dp, top = 3.dp))
@@ -1335,7 +1358,8 @@ private fun SceneBreak() {
     ) {
         Text(
             "•   •   •",
-            color = MutedInk.copy(alpha = .48f),
+            // 场景分隔符是装饰，不承载语义，可以弱；但别弱到看不见。
+            color = MutedInk.copy(alpha = .72f),
             style = MaterialTheme.typography.labelMedium,
             letterSpacing = 2.sp
         )
@@ -1414,9 +1438,9 @@ private fun MarkdownTableBlock(table: MarkdownTable, selectable: Boolean, error:
                                 )
                             Toast.makeText(context, "表格已复制", Toast.LENGTH_SHORT).show()
                         },
-                        modifier = Modifier.size(34.dp)
+                        modifier = Modifier.size(48.dp)
                     ) {
-                        Icon(Icons.Outlined.ContentCopy, "复制表格", Modifier.size(16.dp), tint = MutedInk)
+                        Icon(Icons.Outlined.ContentCopy, "复制表格", Modifier.size(17.dp), tint = MutedInk)
                     }
                 }
                 HorizontalDivider(color = Hairline)

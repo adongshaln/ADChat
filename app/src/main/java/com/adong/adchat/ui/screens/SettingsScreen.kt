@@ -55,6 +55,7 @@ import com.adong.adchat.data.IMAGE_API_MODE_OPENAI
 import com.adong.adchat.data.hasValidBaseUrl
 import com.adong.adchat.data.invalidExtraHeaderLines
 import com.adong.adchat.data.usesResponses
+import com.adong.adchat.data.resolveConversationRoute
 import com.adong.adchat.data.normalized
 import com.adong.adchat.ui.ConnectionPhase
 import com.adong.adchat.ui.ConnectionUiState
@@ -222,9 +223,19 @@ private fun SettingsHome(vm: MainViewModel, onOpenDrawer: () -> Unit, onEdit: (A
         )
     }
     deleteCandidate?.let { profile ->
+        // 删除会把历史对话改路由到另一个配置，这是用户该在点下去之前知道的事。
+        val affected = vm.conversations.count { conversation ->
+            resolveConversationRoute(conversation, vm.profiles, vm.appConfig.activeChatProfileId).profileId == profile.id
+        }
+        val fallback = vm.appConfig.profiles.firstOrNull { it.id != profile.id }
         AdConfirmDialog(
             title = "删除 ${profile.name}？",
-            message = "此操作会删除该 API 的 URL、Key、模型缓存与路由配置，且无法撤销。",
+            message = buildString {
+                append("此操作会删除该 API 的 URL、Key、模型缓存，且无法撤销。")
+                if (affected > 0 && fallback != null) {
+                    append("其中 $affected 个历史对话正在使用这个 API，删除后会改用「${fallback.name}」· ${fallback.chatModel.ifBlank { "未选择模型" }} 继续。")
+                }
+            },
             confirmLabel = "删除",
             dismissLabel = "取消",
             icon = Icons.Rounded.DeleteOutline,

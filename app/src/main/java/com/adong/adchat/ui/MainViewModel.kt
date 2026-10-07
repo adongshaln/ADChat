@@ -315,7 +315,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             scheduleConversationSave(conversations.toList())
         }
         modelCache.remove(profileId); connectionStates.remove(profileId)
-        persist(); notice = "API 配置已删除"
+        persist()
+        // 历史对话被改路由到另一个配置算重大副作用，不能只说「已删除」。
+        notice = if (affectedConversationIds.isNotEmpty()) {
+            "API 配置已删除；$affectedConversationIds 个使用它的对话已改用「${fallbackProfile.name}」· ${fallbackProfile.chatModel.ifBlank { "未选择模型" }}"
+        } else {
+            "API 配置已删除"
+        }
     }
 
     fun selectChatProfile(profileId: String) {
@@ -688,7 +694,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             .filterNot { it.toString() in existingUris }
             .take(remaining)
             .toList()
-        if (candidates.isEmpty()) return
+        // 已经跳出上限的部分要说出来，否则用户只看到「已添加 2 张」，以为剩下的也在路上。
+        val skipped = uris.asSequence().distinctBy(Uri::toString)
+            .filterNot { it.toString() in existingUris }.count() - candidates.size
+        if (candidates.isEmpty()) {
+            if (skipped > 0) notice = "另 $skipped \u5f20\u8d85\u51fa $MAX_CHAT_IMAGES \u5f20\u4e0a\u9650\uff0c\u672a\u6dfb\u52a0"
+            return
+        }
+        val conversation = activeConversationId
         isChatAttachmentLoading = true
         viewModelScope.launch {
             val results = withContext(Dispatchers.IO) {
@@ -696,6 +709,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             }
             val loaded = results.mapNotNull(Result<ChatImageAttachment>::getOrNull)
             val failures = results.count(Result<ChatImageAttachment>::isFailure)
+            if (activeConversationId != conversation) {
+                isChatAttachmentLoading = false
+                notice = "对话已切换，请在目标对话重新选择图片"
+                return@launch
+            }
             loaded.forEach { attachment ->
                 persistReadPermission(attachment.uri)
                 chatAttachments += attachment
@@ -703,6 +721,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             isChatAttachmentLoading = false
             notice = when {
                 loaded.isNotEmpty() && failures > 0 -> "已添加 ${loaded.size} 张图片，$failures 张读取失败"
+                loaded.isNotEmpty() && skipped > 0 -> "已添加 ${loaded.size} 张图片，另 $skipped 张超出 $MAX_CHAT_IMAGES 张上限未添加"
                 loaded.isNotEmpty() -> "已添加 ${loaded.size} 张图片"
                 else -> "图片读取失败，请重新选择"
             }
@@ -715,7 +734,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             ?.let(chatAttachments::removeAt)
     }
 
-    fun sendMessage(textOverride: String? = null, assistantSeed: ChatMessage? = null) {
+    fun sendMessage(textOverride: String? = null, assistantSeed: ChatMessage? = null, systemNote: Boolean = false) {
         val fromComposer = textOverride == null
         val text = (textOverride ?: chatInput).trim()
         if ((text.isEmpty() && (textOverride != null || chatAttachments.isEmpty())) || isChatLoading || isChatAttachmentLoading) return
@@ -726,7 +745,12 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             clearCurrentDraft()
             chatAttachments.clear()
         }
-        messages += ChatMessage(role = "user", content = text, attachments = attachments)
+        messages += ChatMessage(
+            role = "user",
+            content = text,
+            attachments = attachments,
+            isContinuation = systemNote
+        )
         persistCurrentConversation()
         val history = messages.toList()
         val assistantId = System.nanoTime()
@@ -987,7 +1011,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         sendMessage(prompt, assistantSeed = stash)
     }
 
-    /** 编辑重发：移除该条用户消息及其后的全部对话，正文载入输入框等待修改。 */
+    /** 编辑重发：移除该条用户消息及其后的全部对话，正文与图片载入输入框等待修改。 */
     fun editUserMessage(messageId: Long) {
         if (isChatLoading) {
             notice = "请等待当前回复完成后再编辑"
@@ -996,12 +1020,23 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val index = messages.indexOfFirst { it.id == messageId }
         if (index < 0 || messages[index].role != "user") return
         val content = messages[index].content
+        val images = messages[index].attachments
         stashCurrentDraft()
         messages.removeRange(index, messages.size)
         chatInput = content
+        // 原消息带的图一起载回输入框：只搬正文的话，重发后模型看不到图，
+        // 通常会回答「我看不到图片」，而用户以为自己发过。
+        val room = (MAX_CHAT_IMAGES - chatAttachments.size).coerceAtLeast(0)
+        val restoring = images.take(room)
+        chatAttachments.addAll(restoring)
+        val droppedImages = images.size - restoring.size
         scheduleSessionSave(immediate = true)
         persistCurrentConversation()
-        notice = "已载入该条消息，编辑后重新发送"
+        notice = when {
+            droppedImages > 0 -> "已载入该条消息；$droppedImages 张图片超出上限未载入"
+            restoring.isNotEmpty() -> "已载入该条消息及 ${restoring.size} 张图片，编辑后重新发送"
+            else -> "已载入该条消息，编辑后重新发送"
+        }
     }
 
     fun retryMessage(messageId: Long) {
@@ -1013,7 +1048,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         if (messages[index].isInterrupted || messages[index].isStopped) {
             messages[index] = messages[index].copy(isInterrupted = false, isStopped = false)
             persistCurrentConversation()
-            sendMessage("请从上一条回复中断的位置继续，直接续写，不要重复已生成的内容。")
+            // 这句是应用代发的指令，不是用户打的字：标成 continuation，界面渲染成状态条。
+            sendMessage("请从上一条回复中断的位置继续，直接续写，不要重复已生成的内容。", systemNote = true)
             return
         }
         if (!messages[index].isError) return
@@ -1028,11 +1064,18 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             notice = "\u5f53\u524d\u56de\u590d\u4ecd\u5728\u751f\u6210\uff0c\u8bf7\u5148\u505c\u6b62\u6216\u7b49\u5f85\u5b8c\u6210\u540e\u518d\u65b0\u5efa\u5bf9\u8bdd"
             return
         }
+        if (isChatAttachmentLoading) {
+            notice = "\u6b63\u5728\u8bfb\u53d6\u9644\u4ef6\uff0c\u8bf7\u7b49\u8bfb\u53d6\u5b8c\u6210\u540e\u518d\u65b0\u5efa\u5bf9\u8bdd"
+            return
+        }
         val alreadyOnNewConversation = activeConversationId == null
         stashCurrentDraft()
         activeConversationId = null
         lastActiveChatKey = ChatSessionStore.NEW_CONVERSATION_KEY
         messages.clear()
+        // 附件跟着草稿走，不跟着输入框留着：否则上个对话选的图会混进新对话一起发出去。
+        val droppedAttachments = chatAttachments.size
+        chatAttachments.clear()
         if (alreadyOnNewConversation) {
             chatDrafts.remove(lastActiveChatKey)
             chatInput = ""
@@ -1040,7 +1083,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             chatInput = chatDrafts[lastActiveChatKey].orEmpty()
         }
         scheduleSessionSave(immediate = true)
-        notice = if (chatInput.isBlank()) "已开始新对话" else "已恢复新对话草稿"
+        notice = when {
+            droppedAttachments > 0 -> "已开始新对话，未发送的 $droppedAttachments 张图片已移除"
+            chatInput.isBlank() -> "已开始新对话"
+            else -> "已恢复新对话草稿"
+        }
     }
 
     fun clearChat() = newConversation()
@@ -1051,6 +1098,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             notice = "\u5f53\u524d\u56de\u590d\u4ecd\u5728\u751f\u6210\uff0c\u8bf7\u5148\u505c\u6b62\u6216\u7b49\u5f85\u5b8c\u6210\u540e\u518d\u5207\u6362\u4efb\u52a1"
             return
         }
+        if (isChatAttachmentLoading) {
+            notice = "\u6b63\u5728\u8bfb\u53d6\u9644\u4ef6\uff0c\u8bf7\u7b49\u8bfb\u53d6\u5b8c\u6210\u540e\u518d\u5207\u6362\u5bf9\u8bdd"
+            return
+        }
         conversations.firstOrNull { it.id == id }?.let { conversation ->
             stashCurrentDraft()
             activeConversationId = id
@@ -1058,7 +1109,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             messages.clear()
             messages.addAll(conversation.messages)
             chatInput = chatDrafts[id].orEmpty()
+            // 与 newConversation 同一条理由：图片属于还没发出去的那个草稿，不属于新会话。
+            val droppedAttachments = chatAttachments.size
+            chatAttachments.clear()
             scheduleSessionSave(immediate = true)
+            if (droppedAttachments > 0) {
+                notice = "\u5df2\u5207\u6362\u5230\u201c${conversation.title}\u201d\uff0c\u672a\u53d1\u9001\u7684 $droppedAttachments \u5f20\u56fe\u7247\u5df2\u79fb\u9664"
+            }
         }
     }
 

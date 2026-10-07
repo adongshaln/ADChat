@@ -92,6 +92,7 @@ class ConversationStore(context: Context) {
                     reasoning = message.optString("reasoning"),
                     previousContent = message.optString("previousContent"),
                     previousReasoning = message.optString("previousReasoning"),
+                    isContinuation = message.optBoolean("isContinuation"),
                     attachments = decodeAttachments(message.optJSONArray("attachments")),
                     isError = message.optBoolean("isError"),
                     isStreaming = false,
@@ -141,6 +142,7 @@ class ConversationStore(context: Context) {
                     .put("reasoning", message.reasoning)
                     .put("previousContent", message.previousContent)
                     .put("previousReasoning", message.previousReasoning)
+                    .put("isContinuation", message.isContinuation)
                     .put("attachments", encodeAttachments(message.attachments))
                     .put("isError", message.isError)
                     .put("isInterrupted", message.isInterrupted)

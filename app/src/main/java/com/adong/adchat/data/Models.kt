@@ -403,7 +403,9 @@ data class ChatMessage(
     val generatedFiles: List<ChatFileAttachment> = emptyList(),
     val toolActivities: List<ChatToolActivity> = emptyList(),
     val previousContent: String = "",
-    val previousReasoning: String = ""
+    val previousReasoning: String = "",
+    /** 「继续生成」这类由应用代发的指令：会进上下文，但不该显示成用户打过的话。 */
+    val isContinuation: Boolean = false
 )
 
 data class GeneratedFileDraft(
