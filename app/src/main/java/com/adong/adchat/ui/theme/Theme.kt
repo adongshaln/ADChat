@@ -14,6 +14,8 @@ import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.Font
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
@@ -167,17 +169,40 @@ private val shapes = Shapes(
     extraLarge = RoundedCornerShape(28.dp)
 )
 
+/**
+ * Claude 主题的衬线标题字族（Source Serif 4，OFL 协议，见 docs/fonts/）。
+ * 可变字体按字重出实例；中文回退系统衬线，属渐进增强。
+ */
+val SerifHeading = FontFamily(
+    Font(R.font.sourceserif4_variable, weight = FontWeight.Normal, variationSettings = FontVariation.Settings(FontVariation.weight(400))),
+    Font(R.font.sourceserif4_variable, weight = FontWeight.Medium, variationSettings = FontVariation.Settings(FontVariation.weight(500))),
+    Font(R.font.sourceserif4_variable, weight = FontWeight.SemiBold, variationSettings = FontVariation.Settings(FontVariation.weight(600))),
+    Font(R.font.sourceserif4_variable, weight = FontWeight.Bold, variationSettings = FontVariation.Settings(FontVariation.weight(700)))
+)
+
+private fun Typography.withSerifHeadings() = copy(
+    displaySmall = displaySmall.copy(fontFamily = SerifHeading, letterSpacing = 0.sp),
+    headlineMedium = headlineMedium.copy(fontFamily = SerifHeading, letterSpacing = 0.sp),
+    titleLarge = titleLarge.copy(fontFamily = SerifHeading)
+)
+
+private val claudeTypography = typography.withSerifHeadings()
+
+private val claudeShapes = Shapes(
+    extraSmall = RoundedCornerShape(10.dp), small = RoundedCornerShape(14.dp),
+    medium = RoundedCornerShape(22.dp), large = RoundedCornerShape(26.dp),
+    extraLarge = RoundedCornerShape(30.dp)
+)
+
 @Composable
 fun AsterTheme(themeMode: String = THEME_MODE_ASTER, content: @Composable () -> Unit) {
-    val palette = when (themeMode) {
-        THEME_MODE_CLAUDE -> ClaudePaletteLight
-        else -> AsterPaletteLight
-    }
+    val claude = themeMode == THEME_MODE_CLAUDE
+    val palette = if (claude) ClaudePaletteLight else AsterPaletteLight
     CompositionLocalProvider(LocalAsterPalette provides palette) {
         MaterialTheme(
             colorScheme = palette.toColorScheme(),
-            typography = typography,
-            shapes = shapes,
+            typography = if (claude) claudeTypography else typography,
+            shapes = if (claude) claudeShapes else shapes,
             content = content
         )
     }
