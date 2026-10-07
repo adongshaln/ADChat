@@ -1001,6 +1001,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun retryMessage(messageId: Long) {
         val index = messages.indexOfFirst { it.id == messageId }
         if (index < 0) return
+        // 只接受最后一条：重试会把该问答追加到列表末尾，对中间消息操作会打乱顺序。
+        // UI 已只为最后一条开放入口，这里是兜底。
+        if (index != messages.lastIndex) return
         if (messages[index].isInterrupted || messages[index].isStopped) {
             messages[index] = messages[index].copy(isInterrupted = false, isStopped = false)
             persistCurrentConversation()

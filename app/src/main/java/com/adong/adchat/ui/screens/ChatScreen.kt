@@ -190,6 +190,16 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
             }?.id
         }
     }
+    // 重试与继续生成只对最后一条消息开放：这会把该问答追加到列表末尾，作用在中间消息上
+    // 等于把这一轮挪到别的提问后面，对话顺序和发给模型的历史会一起错乱。要重做更早的一轮，
+    // 用长按用户消息的「编辑重发」，它按原位截断而不是追加。
+    val retryableMessageId by remember {
+        derivedStateOf {
+            vm.messages.lastOrNull()?.takeIf {
+                it.role == "assistant" && !it.isStreaming && (it.isError || it.isInterrupted || it.isStopped)
+            }?.id
+        }
+    }
     val composerHeight = with(density) { composerHeightPx.toDp() }.coerceAtLeast(72.dp)
     val composerClearance = composerHeight + 18.dp
     LaunchedEffect(vm.activeConversationId) {
@@ -293,6 +303,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                         ChatMessageItem(
                             message = message,
                             canRegenerate = message.id == regeneratableMessageId,
+                            canRetry = message.id == retryableMessageId,
                             onRetry = { vm.retryMessage(message.id) },
                             onRegenerate = { vm.regenerateMessage(message.id) },
                             onEditResend = { editCandidate = message },
@@ -489,6 +500,7 @@ internal fun EmptyChat(model: String, onSuggestion: (String) -> Unit, onConfigur
 private fun ChatMessageItem(
     message: ChatMessage,
     canRegenerate: Boolean,
+    canRetry: Boolean,
     onRetry: () -> Unit,
     onRegenerate: () -> Unit,
     onSaveFile: (ChatFileAttachment) -> Unit,
@@ -599,12 +611,16 @@ private fun ChatMessageItem(
                         FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                             ConversationCopyAction(message.content)
                             if (message.isError) {
-                                ConversationMessageAction(Icons.Rounded.Refresh, "重试", onRetry)
+                                if (canRetry) {
+                                    ConversationMessageAction(Icons.Rounded.Refresh, "重试", onRetry)
+                                }
                                 if (message.content.contains("上下文预算")) {
                                     ConversationMessageAction(Icons.Rounded.Tune, "调整上下文", onConfigureContext, accent = true)
                                 }
                             } else if (message.isInterrupted || message.isStopped) {
-                                ConversationMessageAction(Icons.Rounded.PlayArrow, "继续生成", onRetry)
+                                if (canRetry) {
+                                    ConversationMessageAction(Icons.Rounded.PlayArrow, "继续生成", onRetry)
+                                }
                             } else if (canRegenerate) {
                                 ConversationMessageAction(Icons.Rounded.Refresh, "重新生成", onRegenerate, accent = true)
                             }
