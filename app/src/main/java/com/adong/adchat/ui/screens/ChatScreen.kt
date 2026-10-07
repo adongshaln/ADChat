@@ -323,21 +323,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                     .onSizeChanged { composerHeightPx = it.height }
                     .navigationBarsPadding()
             ) {
-                Column {
-                    Row(
-                        Modifier.fillMaxWidth().padding(bottom = 5.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        AsterMark(Modifier.size(11.dp), tint = Accent)
-                        Spacer(Modifier.width(5.dp))
-                        Text(
-                            "AI 可能会出错，请核对重要信息",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MutedInk
-                        )
-                    }
-                    ChatComposer(
+                ChatComposer(
                     skillScope = "adchat-${vm.activeConversationId ?: "new"}",
                     focusRequester = composerFocusRequester,
                     value = vm.chatInput,
@@ -371,9 +357,8 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                     onSend = { autoFollow = true; vm.sendMessage() },
                     onStop = vm::stopGeneration,
                     onFocusChange = { composerFocused = it },
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.align(Alignment.BottomCenter)
                 )
-                }
             }
         }
     }
@@ -477,7 +462,7 @@ private fun ChatMessageItem(
             horizontalAlignment = if (user) Alignment.End else Alignment.Start
         ) {
             if (user) {
-                Surface(color = SurfaceInset, contentColor = Ink, shape = RoundedCornerShape(24.dp)) {
+                Surface(color = SurfaceInset, contentColor = Ink, shape = RoundedCornerShape(22.dp, 22.dp, 8.dp, 22.dp)) {
                     Column(Modifier.padding(7.dp)) {
                         if (message.attachments.isNotEmpty()) {
                             ConversationImages(message.attachments)
@@ -528,7 +513,7 @@ private fun ChatMessageItem(
                 }
                 if (message.isInterrupted || message.isStopped) {
                     Surface(
-                        color = if (message.isStopped) SurfaceInset else AmberSoft,
+                        color = if (message.isStopped) Color(0xFFF0EDE8) else Color(0xFFFFF1D8),
                         contentColor = Ink,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.padding(top = 8.dp)
@@ -606,7 +591,7 @@ private fun StreamRecoveryStatus(
         else -> "已自动续传 $count 次"
     }
     Surface(
-        color = if (recovering) AccentSoft else SurfaceInset,
+        color = if (recovering) AccentSoft else Color(0xFFF0EDE8),
         contentColor = if (recovering) Accent else MutedInk,
         shape = RoundedCornerShape(12.dp),
         modifier = Modifier.padding(top = 8.dp)
@@ -749,7 +734,7 @@ private fun CitationPanel(citations: List<ChatCitation>) {
             citations.forEachIndexed { index, citation ->
                 Surface(
                     onClick = { runCatching { uriHandler.openUri(citation.url) } },
-                    color = SurfaceInset,
+                    color = Color(0xFFF0EDE8),
                     contentColor = Ink,
                     shape = RoundedCornerShape(13.dp)
                 ) {
@@ -801,7 +786,7 @@ private fun TokenUsagePanel(usage: com.adong.adchat.data.TokenUsage) {
         color = when {
             hasCache -> SageSoft
             hasCacheWrite || (waitingForReuse && usage.cacheEligible) -> AccentSoft
-            else -> SurfaceInset
+            else -> Color(0xFFF0EDE8)
         },
         contentColor = Ink,
         shape = RoundedCornerShape(13.dp),
@@ -832,7 +817,7 @@ private fun TokenUsagePanel(usage: com.adong.adchat.data.TokenUsage) {
                     progress = { (if (hasCache) usage.cacheHitRate else usage.cacheWriteTokens.toFloat() / usage.inputTokens.coerceAtLeast(1)).coerceIn(0f, 1f) },
                     modifier = Modifier.fillMaxWidth().height(4.dp).clip(CircleShape),
                     color = if (hasCache) Sage else Accent,
-                    trackColor = if (hasCache) SageSoft else AccentSoft
+                    trackColor = if (hasCache) Color(0xFFCFE4D7) else Color(0xFFF3CDC3)
                 )
             }
             AnimatedVisibility(expanded) {
@@ -1275,7 +1260,7 @@ private fun MarkdownTableBlock(table: MarkdownTable, selectable: Boolean, error:
         val horizontallyScrollable = totalWidth > maxWidth
 
         Surface(
-            color = Surface,
+            color = Color(0xFFFCFBF9),
             contentColor = if (error) Danger else Ink,
             shape = RoundedCornerShape(17.dp),
             border = BorderStroke(1.dp, if (error) Danger.copy(alpha = .24f) else Hairline),
@@ -1381,7 +1366,7 @@ private fun MarkdownTableRow(
             when {
                 header && error -> DangerSoft
                 header -> AccentSoft.copy(alpha = .58f)
-                striped -> SurfaceInset
+                striped -> Color(0xFFF7F4F0)
                 else -> Color.White
             }
         ).height(IntrinsicSize.Min)
@@ -1545,7 +1530,6 @@ private fun AsterWritingCursorLine(error: Boolean) {
     )
 }
 
-@Composable
 private fun inlineMarkdown(text: String): AnnotatedString {
     val base = basicInlineMarkdown(text)
     val source = base.text
@@ -1567,7 +1551,6 @@ private fun inlineMarkdown(text: String): AnnotatedString {
     }
 }
 
-@Composable
 private fun basicInlineMarkdown(text: String): AnnotatedString = buildAnnotatedString {
     var index = 0
     val tokens = listOf("**", "__", "~~", "`", "*", "_")
@@ -1579,7 +1562,7 @@ private fun basicInlineMarkdown(text: String): AnnotatedString = buildAnnotatedS
                 val style = when (token) {
                     "**", "__" -> SpanStyle(fontWeight = FontWeight.Bold)
                     "~~" -> SpanStyle(textDecoration = TextDecoration.LineThrough)
-                    "`" -> SpanStyle(fontFamily = FontFamily.Monospace, background = SurfaceInset, color = Ink)
+                    "`" -> SpanStyle(fontFamily = FontFamily.Monospace, background = Color(0xFFF0EDE8), color = Ink)
                     else -> SpanStyle(fontStyle = FontStyle.Italic)
                 }
                 pushStyle(style)
@@ -1842,7 +1825,7 @@ private fun ComposerToolToggle(
 ) {
     Surface(color = Surface, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
         Row(Modifier.clickable { onCheckedChange(!checked) }.padding(horizontal = 13.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(if (checked) AccentSoft else SurfaceInset), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(36.dp).clip(RoundedCornerShape(11.dp)).background(if (checked) AccentSoft else Color(0xFFF0EDE8)), contentAlignment = Alignment.Center) {
                 Icon(icon, null, Modifier.size(19.dp), tint = if (checked) Accent else MutedInk)
             }
             Spacer(Modifier.width(11.dp))

@@ -678,7 +678,6 @@ private fun PlatformIcon(platform: MediaPlatform?, modifier: Modifier, tint: Col
     )
 }
 
-@Composable
 private fun platformColor(platform: MediaPlatform?): Color = when (platform) {
     MediaPlatform.Douyin -> Color(0xFF2F6F62)
     MediaPlatform.Twitter -> Color(0xFF3D586E)
@@ -687,7 +686,6 @@ private fun platformColor(platform: MediaPlatform?): Color = when (platform) {
     null -> MutedInk
 }
 
-@Composable
 private fun platformSoftColor(platform: MediaPlatform?): Color = when (platform) {
     MediaPlatform.Douyin -> Color(0xFFE4F1EC)
     MediaPlatform.Twitter -> Color(0xFFE8EEF3)

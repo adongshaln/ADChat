@@ -470,14 +470,6 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         appConfig = appConfig.copy(systemPrompt = value); persist()
     }
 
-    /** 切换主题；未知取值一律回到 Aster，与持久化解码规则一致。 */
-    fun setThemeMode(mode: String) {
-        val normalized = mode.takeIf { it == THEME_MODE_CLAUDE } ?: THEME_MODE_ASTER
-        if (appConfig.themeMode == normalized) return
-        appConfig = appConfig.copy(themeMode = normalized)
-        persist()
-    }
-
     fun testProfile(profile: ApiProfile, onUpdatedDraft: ((ApiProfile) -> Unit)? = null) {
         val tested = profile.normalized()
         val invalidHeaders = tested.invalidExtraHeaderLines()
