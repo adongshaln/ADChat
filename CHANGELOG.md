@@ -4,6 +4,24 @@ Aster 的稳定版本更新记录。除特别说明外，只有经过测试并�
 
 ## 未发布
 
+## 2.6.0 — 2026-10-07
+
+### 接口路由
+
+- 接口协议改为按模型自动判定：GPT 与 Grok 固定走 Responses，其余模型走 Chat Completions；不再提供接口类型选项，绘图流程不受影响。
+
+### 思考过程与诊断
+
+- 修复 API 密钥在某些路径下被静默清空的问题，请求失败改为给出可诊断的原因。
+- 推理模型的思考过程实时回传，在正文上方单独成面板展示，不与正文混排，也不会再回传给服务端；支持 Chat 侧的 `reasoning_content` / `reasoning`，以及 Responses 侧的 `reasoning_summary_text` / `reasoning_text` 事件。
+
+### 思考强度与上下文长度
+
+- 输入框新增两个常驻按钮：上下文进度圈实时显示本次请求预计占用的输入预算，思考强度按钮按模型家族匹配可选档位。
+- 思考强度只对 grok、gpt、Claude、glm、kimi、deepseek 生效，按各家真实参数写入：GPT 用 `reasoning.effort` / `reasoning_effort`，Grok 用顶层 `reasoning_effort`，Claude 用 `thinking.type` + `budget_tokens`（按最终 `max_tokens` 收紧），GLM / DeepSeek 用 `thinking` 加 `reasoning_effort`，Kimi K3 用 `reasoning_effort`、kimi-k2.x 用 `thinking` 开关；档位不属于当前家族时回落到默认，不发送对方不认识的取值。
+- Grok 不再携带会被 xAI 拒绝的 `presence_penalty` / `frequency_penalty` / `seed`。
+- 上下文面板展示预算构成（系统提示词、对话历史、图片附件、请求开销）、被省略的轮数与上一次供应商回传用量，并可直接切换 128K / 256K / 512K / 1M，或自定义数值、恢复默认；长度改动立即重算进度圈。
+
 ## 2.5.9
 
 - 故事选项和“我的故事”列表新增“删除整个对话”，二次确认后删除该故事全部工作区、历史路线与资料；先等待生成停止，避免删除后写回。
