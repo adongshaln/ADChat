@@ -200,16 +200,12 @@ fun ConversationComposer(
                             Icon(Icons.Rounded.Add, "输入选项", Modifier.size(29.dp), tint = Ink)
                         }
                     }
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.CenterEnd) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            // 上下文进度与思考强度常驻，不随焦点隐藏；工具栏按钮仍只在聚焦时出现。
-                            contextAction?.invoke()
-                            reasoningAction?.invoke()
-                            androidx.compose.animation.AnimatedVisibility(visible = isFocused, enter = fadeIn(tween(150)), exit = fadeOut(tween(90))) {
-                                trailingActions()
-                            }
-                        }
-                    }
+                    // Claude 布局：模型 chip 紧随加号常驻，上下文圈与思考强度随行；
+                    // 右侧只留展开草稿（聚焦时）与发送键。
+                    trailingActions()
+                    contextAction?.invoke()
+                    reasoningAction?.invoke()
+                    Spacer(Modifier.weight(1f))
                     AnimatedVisibility(visible = isFocused, enter = fadeIn(tween(150)), exit = fadeOut(tween(90))) {
                         IconButton(onClick = {
                             // Ignore the compact field's blur callback during the hand-off.
@@ -233,8 +229,8 @@ fun ConversationComposer(
                         modifier = Modifier.size(46.dp),
                         shape = CircleShape,
                         colors = IconButtonDefaults.filledIconButtonColors(
-                            containerColor = Night,
-                            contentColor = Color.White,
+                            containerColor = Accent,
+                            contentColor = WarmWhite,
                             disabledContainerColor = Color(0xFFE6E1DB),
                             disabledContentColor = Color(0xFFA9A39C)
                         )
@@ -327,58 +323,70 @@ fun ConversationReasoningPanel(
 ) {
     if (reasoning.isBlank()) return
     var expanded by remember { mutableStateOf(true) }
+    var wasStreaming by remember { mutableStateOf(false) }
+    // Claude 的节奏：思考流式可见，正文一开始就收起成一行，仍可展开回看。
+    LaunchedEffect(streaming) {
+        if (wasStreaming && !streaming) expanded = false
+        wasStreaming = streaming
+    }
     val scrollState = rememberScrollState()
     if (streaming && expanded) {
         LaunchedEffect(reasoning.length) { scrollState.scrollTo(scrollState.maxValue) }
     }
-    Surface(
-        onClick = { expanded = !expanded },
-        color = SurfaceInset.copy(alpha = .7f),
-        contentColor = Ink,
-        shape = RoundedCornerShape(13.dp),
-        modifier = modifier.fillMaxWidth().padding(bottom = 10.dp).animateContentSize(tween(180))
+    // 思考中的文字微光：0.55..1 循环，让「正在思考」有推进感。
+    val shimmer by rememberInfiniteTransition(label = "thinking-shimmer").animateFloat(
+        initialValue = .55f, targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(620), RepeatMode.Reverse),
+        label = "thinking-shimmer-alpha"
+    )
+    Column(
+        modifier.fillMaxWidth().padding(bottom = 10.dp).animateContentSize(tween(180)),
+        horizontalAlignment = Alignment.Start
     ) {
-        Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (streaming) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        color = Accent,
-                        trackColor = Accent.copy(alpha = .16f),
-                        strokeWidth = 2.dp
-                    )
-                } else {
-                    Icon(Icons.Rounded.Psychology, null, Modifier.size(17.dp), tint = MutedInk)
-                }
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    if (streaming) "正在思考…" else "思考过程",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = MutedInk,
-                    modifier = Modifier.weight(1f)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(9.dp)).clickable { expanded = !expanded }.padding(horizontal = 2.dp, vertical = 3.dp)
+        ) {
+            if (streaming) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(15.dp),
+                    color = Accent,
+                    trackColor = Accent.copy(alpha = .16f),
+                    strokeWidth = 2.dp
                 )
+            } else {
+                Icon(Icons.Rounded.Schedule, null, Modifier.size(15.dp), tint = MutedInk)
+            }
+            Spacer(Modifier.width(7.dp))
+            Text(
+                if (streaming) "正在思考…" else "思考过程",
+                style = MaterialTheme.typography.labelLarge,
+                color = MutedInk.copy(alpha = if (streaming) shimmer else 1f),
+                modifier = Modifier.weight(1f)
+            )
+            if (!streaming) {
                 Text(
                     "${reasoning.length} 字",
                     style = MaterialTheme.typography.labelSmall,
                     color = MutedInk.copy(alpha = .7f)
                 )
-                Spacer(Modifier.width(4.dp))
-                Icon(
-                    if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
-                    null,
-                    Modifier.size(18.dp),
-                    tint = MutedInk
-                )
+                Spacer(Modifier.width(5.dp))
             }
-            AnimatedVisibility(expanded) {
-                Text(
-                    reasoning,
-                    Modifier.padding(top = 8.dp).heightIn(max = 240.dp).verticalScroll(scrollState),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MutedInk,
-                    lineHeight = 19.sp
-                )
-            }
+            Icon(
+                if (expanded) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore,
+                null,
+                Modifier.size(17.dp),
+                tint = MutedInk
+            )
+        }
+        AnimatedVisibility(expanded) {
+            Text(
+                reasoning,
+                Modifier.padding(top = 4.dp).heightIn(max = 240.dp).verticalScroll(scrollState),
+                style = MaterialTheme.typography.bodySmall,
+                color = MutedInk,
+                lineHeight = 19.sp
+            )
         }
     }
 }

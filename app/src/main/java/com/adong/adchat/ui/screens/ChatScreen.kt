@@ -323,7 +323,21 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                     .onSizeChanged { composerHeightPx = it.height }
                     .navigationBarsPadding()
             ) {
-                ChatComposer(
+                Column {
+                    Row(
+                        Modifier.fillMaxWidth().padding(bottom = 5.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        AsterMark(Modifier.size(11.dp), tint = Accent)
+                        Spacer(Modifier.width(5.dp))
+                        Text(
+                            "AI 可能会出错，请核对重要信息",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MutedInk
+                        )
+                    }
+                    ChatComposer(
                     skillScope = "adchat-${vm.activeConversationId ?: "new"}",
                     focusRequester = composerFocusRequester,
                     value = vm.chatInput,
@@ -357,8 +371,9 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                     onSend = { autoFollow = true; vm.sendMessage() },
                     onStop = vm::stopGeneration,
                     onFocusChange = { composerFocused = it },
-                    modifier = Modifier.align(Alignment.BottomCenter)
+                    modifier = Modifier.fillMaxWidth()
                 )
+                }
             }
         }
     }
@@ -462,7 +477,7 @@ private fun ChatMessageItem(
             horizontalAlignment = if (user) Alignment.End else Alignment.Start
         ) {
             if (user) {
-                Surface(color = SurfaceInset, contentColor = Ink, shape = RoundedCornerShape(22.dp, 22.dp, 8.dp, 22.dp)) {
+                Surface(color = SurfaceInset, contentColor = Ink, shape = RoundedCornerShape(24.dp)) {
                     Column(Modifier.padding(7.dp)) {
                         if (message.attachments.isNotEmpty()) {
                             ConversationImages(message.attachments)
