@@ -41,7 +41,8 @@ data class AsterPalette(
     val dangerSoft: Color,
     val night: Color,
     val quoteAmber: Color,
-    val bracketBlue: Color
+    val bracketBlue: Color,
+    val amberSoft: Color
 )
 
 /** Aster 原生暖米色调。 */
@@ -61,7 +62,8 @@ val AsterPaletteLight = AsterPalette(
     dangerSoft = Color(0xFFFFE8E5),
     night = Color(0xFF352F2A),
     quoteAmber = Color(0xFF9A6B12),
-    bracketBlue = Color(0xFF6292B3)
+    bracketBlue = Color(0xFF6292B3),
+    amberSoft = Color(0xFFFFF1D8)
 )
 
 /** Claude 风格：暖象牙底、陶土橘强调（取样自官方浅色界面，见设计文档）。 */
@@ -81,7 +83,8 @@ val ClaudePaletteLight = AsterPalette(
     dangerSoft = Color(0xFFFFE8E5),
     night = Color(0xFF1F1E1D),
     quoteAmber = Color(0xFF9A6B12),
-    bracketBlue = Color(0xFF6292B3)
+    bracketBlue = Color(0xFF6292B3),
+    amberSoft = Color(0xFFF5EBD9)
 )
 
 val LocalAsterPalette = staticCompositionLocalOf { AsterPaletteLight }
@@ -103,6 +106,7 @@ val DangerSoft @Composable get() = LocalAsterPalette.current.dangerSoft
 val Night @Composable get() = LocalAsterPalette.current.night
 val QuoteAmber @Composable get() = LocalAsterPalette.current.quoteAmber
 val BracketBlue @Composable get() = LocalAsterPalette.current.bracketBlue
+val AmberSoft @Composable get() = LocalAsterPalette.current.amberSoft
 
 private fun AsterPalette.toColorScheme() = lightColorScheme(
     primary = ink,
