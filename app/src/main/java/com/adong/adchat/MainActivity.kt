@@ -67,7 +67,7 @@ class MainActivity : ComponentActivity() {
         pendingMediaShare = extractSharedMediaText(intent)
         enableEdgeToEdge()
         setContent {
-            AsterTheme(themeMode = viewModel.appConfig.themeMode) {
+            AsterTheme {
                 AsterApp(
                     vm = viewModel,
                     incomingMediaText = pendingMediaShare,

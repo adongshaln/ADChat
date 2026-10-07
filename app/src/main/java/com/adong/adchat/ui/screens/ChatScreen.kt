@@ -253,8 +253,6 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                 }
             }
         )
-        val glassHaze = rememberGlassHazeState()
-        CompositionLocalProvider(LocalGlassHazeState provides glassHaze) {
         Box(Modifier.weight(1f).fillMaxWidth().imePadding()) {
             Box(
                 Modifier.fillMaxSize()
@@ -273,13 +271,12 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                 } else {
                     LazyColumn(
                         state = listState,
-                        modifier = Modifier.fillMaxSize().glassSource(glassHaze),
+                        modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(
                             start = 22.dp,
                             end = 22.dp,
                             top = 24.dp,
-                            // 玻璃模式下让最新消息停靠在 dock 后面，毛玻璃才有内容可透。
-                            bottom = if (glassHaze != null) 24.dp else composerClearance + 24.dp
+                            bottom = composerClearance + 24.dp
                         ),
                         verticalArrangement = Arrangement.spacedBy(30.dp)
                     ) {
@@ -315,10 +312,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                     }
                 }
             }
-            // 玻璃模式下去掉底部渐变遮罩——它会把本该透过玻璃看到的背板内容涂掉。
-            if (glassHaze == null) {
-                ConversationReadingVeil(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(composerHeight))
-            }
+            ConversationReadingVeil(Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(composerHeight))
             ConversationJumpToBottom(
                 visible = showJumpToBottom, loading = vm.isChatLoading,
                 onClick = { autoFollow = true; scope.launch { listState.animateScrollToItem(vm.messages.size) } },
@@ -366,7 +360,6 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                     modifier = Modifier.align(Alignment.BottomCenter)
                 )
             }
-        }
         }
     }
     if (showSwitcher) {
@@ -1537,7 +1530,6 @@ private fun AsterWritingCursorLine(error: Boolean) {
     )
 }
 
-@Composable
 private fun inlineMarkdown(text: String): AnnotatedString {
     val base = basicInlineMarkdown(text)
     val source = base.text
@@ -1559,7 +1551,6 @@ private fun inlineMarkdown(text: String): AnnotatedString {
     }
 }
 
-@Composable
 private fun basicInlineMarkdown(text: String): AnnotatedString = buildAnnotatedString {
     var index = 0
     val tokens = listOf("**", "__", "~~", "`", "*", "_")

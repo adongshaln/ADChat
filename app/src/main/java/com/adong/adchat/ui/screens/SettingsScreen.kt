@@ -32,9 +32,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -46,8 +44,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.adong.adchat.data.ApiModel
 import com.adong.adchat.data.ApiProfile
-import com.adong.adchat.data.THEME_MODE_ASTER
-import com.adong.adchat.data.THEME_MODE_GLASS
 import com.adong.adchat.data.IMAGE_API_MODE_AUTO
 import com.adong.adchat.data.IMAGE_API_MODE_GEMINI
 import com.adong.adchat.data.IMAGE_API_MODE_OPENAI
@@ -169,21 +165,6 @@ private fun SettingsHome(vm: MainViewModel, onOpenDrawer: () -> Unit, onEdit: (A
                         shape = RoundedCornerShape(15.dp), colors = editorFieldColors()
                     )
                     Text("修改自动保存，仅用于对话。", color = MutedInk, style = MaterialTheme.typography.labelMedium)
-                }
-            }
-            item {
-                SettingsDisclosure("外观", "选择应用的整体观感", Icons.Rounded.Palette) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        ThemePreviewCard("Aster", THEME_MODE_ASTER,
-                            vm.appConfig.themeMode, vm::setThemeMode, Modifier.weight(1f))
-                        ThemePreviewCard("液态玻璃", THEME_MODE_GLASS,
-                            vm.appConfig.themeMode, vm::setThemeMode, Modifier.weight(1f))
-                    }
-                    Text(
-                        "液态玻璃需要 Android 12+；旧系统自动退化为普通外观。",
-                        color = MutedInk, style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.padding(top = 8.dp)
-                    )
                 }
             }
             item { com.adong.adchat.ui.components.SkillPickerEntry(null) }
@@ -1058,62 +1039,4 @@ private fun String.isImageLike(): Boolean {
         "novelai",
         "diffusion"
     ).any(id::contains)
-}
-
-/** 外观预览卡：卡内是输入条缩微模型，玻璃档画成半透明以示意毛玻璃。 */
-@Composable
-private fun ThemePreviewCard(
-    label: String,
-    mode: String,
-    currentMode: String,
-    onSelect: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val selected = currentMode == mode
-    val accent = Accent
-    val haptics = LocalHapticFeedback.current
-    Column(modifier) {
-        Surface(
-            onClick = {
-                haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                onSelect(mode)
-            },
-            color = Canvas,
-            shape = RoundedCornerShape(18.dp),
-            border = BorderStroke(2.dp, if (selected) accent else Hairline.copy(alpha = .55f)),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(Modifier.padding(10.dp)) {
-                Surface(
-                    color = if (mode == THEME_MODE_GLASS) Surface.copy(alpha = .55f) else Surface.copy(alpha = .97f),
-                    shape = RoundedCornerShape(13.dp),
-                    border = if (mode == THEME_MODE_GLASS) BorderStroke(1.dp, Color.White.copy(alpha = .9f)) else null
-                ) {
-                    Column(Modifier.padding(horizontal = 10.dp, vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("写点什么…", style = MaterialTheme.typography.labelSmall, color = MutedInk, modifier = Modifier.weight(1f))
-                            Surface(color = Night, shape = CircleShape, modifier = Modifier.size(18.dp)) {
-                                Icon(Icons.Rounded.ArrowUpward, null, Modifier.padding(4.dp), tint = Color.White)
-                            }
-                        }
-                        Surface(color = SurfaceInset, shape = CircleShape) {
-                            Text(
-                                "模型 ⌄",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MutedInk,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        Text(
-            label,
-            style = MaterialTheme.typography.bodyMedium,
-            color = if (selected) accent else MutedInk,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-            modifier = Modifier.fillMaxWidth().padding(top = 7.dp)
-        )
-    }
 }

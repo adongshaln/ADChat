@@ -2028,7 +2028,6 @@ private fun memoryKindLabel(kind: StoryMemoryKind): String = when (kind) {
     StoryMemoryKind.Summary -> "剧情摘要"
 }
 
-@Composable
 private fun storyAnnotatedText(text: String): AnnotatedString = buildAnnotatedString {
     append(text)
     var cursor = 0

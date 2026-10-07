@@ -32,7 +32,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.adong.adchat.data.ChatImageAttachment
-import com.adong.adchat.data.THEME_MODE_GLASS
 import com.adong.adchat.ui.theme.*
 import kotlin.math.PI
 import kotlin.math.sin
@@ -140,25 +139,12 @@ fun ConversationComposer(
                 )
             }
         }
-        val glassState = LocalGlassHazeState.current
-        val themeIsGlass = glassState != null || LocalThemeMode.current == THEME_MODE_GLASS
         Surface(
-            color = when {
-                glassState != null -> Color.Transparent
-                themeIsGlass -> Surface.copy(alpha = .8f)   // 旧系统无模糊：至少透出一点下层
-                else -> Surface.copy(alpha = .97f)
-            },
+            color = Surface.copy(alpha = .97f),
             shape = capsuleShape,
-            border = BorderStroke(1.dp, when {
-                isFocused -> Accent.copy(alpha = .35f)
-                glassState != null -> Color.White.copy(alpha = .85f)
-                else -> Hairline
-            }),
+            border = BorderStroke(1.dp, if (isFocused) Accent.copy(alpha = .35f) else Hairline),
             shadowElevation = 0.dp,
-            modifier = Modifier
-                .fillMaxWidth()
-                .glassSurface(glassState, capsuleShape, Surface)
-                .testTag("$testTag-composer")
+            modifier = Modifier.fillMaxWidth().testTag("$testTag-composer")
         ) {
             Box(Modifier.fillMaxWidth().defaultMinSize(minHeight = minimumHeight)) {
                 BasicTextField(
