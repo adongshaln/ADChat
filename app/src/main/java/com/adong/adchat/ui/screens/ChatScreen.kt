@@ -222,7 +222,9 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
         streamScrollSignals.collect {
             if (vm.messages.isNotEmpty() && autoFollow && !userDragging && !composerFocused) {
                 try {
-                    listState.animateScrollToItem(vm.messages.size)
+                    // 流式跟随用瞬时滚动：每个 token 都重启一次 animateScrollToItem，
+                    // 动画永远播不完，列表底部会持续抖动。
+                    listState.scrollToItem(vm.messages.size)
                 } catch (cancelled: CancellationException) {
                     // A gesture or detail reveal cancels this scroll, not the signal collector.
                     // Still propagate cancellation when the conversation itself leaves composition.
@@ -765,7 +767,9 @@ private fun ToolActivitySummary(activities: List<ChatToolActivity>) {
         },
         contentColor = Ink,
         shape = RoundedCornerShape(13.dp),
-        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp).animateContentSize(tween(180))
+        // 高度动画只留 AnimatedVisibility 一层；工具状态在流式期间会反复刷新，
+        // 再叠 animateContentSize 会让卡片高度持续微动画，和正文滚动叠加成噪声。
+        modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
     ) {
         Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -790,7 +794,11 @@ private fun ToolActivitySummary(activities: List<ChatToolActivity>) {
                     )
                 }
             }
-            AnimatedVisibility(expanded) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn(tween(150)) + expandVertically(tween(200, FastOutSlowInEasing)),
+                exit = fadeOut(tween(100)) + shrinkVertically(tween(160))
+            ) {
                 Column(Modifier.padding(top = 9.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                     activities.forEach { activity ->
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1095,25 +1103,36 @@ private fun RichMessageText(
 @Composable
 private fun StreamingProseText(content: String, error: Boolean) {
     val normalized = content.replace("\r\n", "\n")
-    val parts = remember(normalized) { normalized.split("\n\n") }
+    // 尾段单独渲染，不把整段重新分词：生成期间每个 token 都重排会让长回答明显掉帧，
+    // key(index, paragraph) 还会让尾段视图反复销毁重建。
+    val bodyStyle = MaterialTheme.typography.bodyLarge.copy(
+        fontSize = READING_BODY_FONT_SP.sp,
+        lineHeight = READING_BODY_LINE_SP.sp,
+        fontWeight = FontWeight.Normal,
+        letterSpacing = 0.sp
+    )
+    val splitAt = normalized.lastIndexOf("\n\n")
+    val head = if (splitAt >= 0) normalized.substring(0, splitAt) else ""
+    val tail = if (splitAt >= 0) normalized.substring(splitAt + 2) else normalized
     Column(verticalArrangement = Arrangement.spacedBy(READING_BLOCK_GAP_DP.dp)) {
-        if (parts.isEmpty() || (parts.size == 1 && parts.first().isEmpty())) {
+        if (head.isBlank() && tail.isBlank()) {
             AsterWritingCursorLine(error)
             return@Column
         }
-        parts.forEachIndexed { index, paragraph ->
-            val tail = index == parts.lastIndex
-            if (paragraph.isNotEmpty()) {
-                key(index, paragraph) {
-                    MarkdownTextBlock(
-                        raw = paragraph,
-                        showCursor = tail,
-                        error = error
-                    )
-                }
-            } else if (tail) {
-                AsterWritingCursorLine(error)
-            }
+        if (head.isNotBlank()) {
+            MarkdownTextBlock(raw = head, showCursor = false, error = error)
+        }
+        if (tail.isNotEmpty()) {
+            // 尾段还在长：用轻量行内渲染 + 光标，不跑完整块解析，也不需要 key() 重建。
+            ReadableText(
+                inlineMarkdown(tail),
+                bodyStyle,
+                if (error) Danger else Ink,
+                selectable = true,
+                showWritingCursor = true
+            )
+        } else {
+            AsterWritingCursorLine(error)
         }
     }
 }

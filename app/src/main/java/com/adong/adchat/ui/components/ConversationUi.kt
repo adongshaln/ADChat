@@ -343,7 +343,9 @@ fun ConversationReasoningPanel(
         color = SurfaceInset.copy(alpha = .7f),
         contentColor = Ink,
         shape = RoundedCornerShape(13.dp),
-        modifier = modifier.fillMaxWidth().padding(bottom = 10.dp).animateContentSize(tween(180))
+        // 高度动画只留一层：AnimatedVisibility 负责展开收起，流式期间内容在持续变长，
+        // 再叠一个 animateContentSize 会永远追不上新高度，两层还会打架。
+        modifier = modifier.fillMaxWidth().padding(bottom = 10.dp)
     ) {
         Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -371,7 +373,11 @@ fun ConversationReasoningPanel(
                     tint = MutedInk
                 )
             }
-            AnimatedVisibility(expanded) {
+            AnimatedVisibility(
+                visible = expanded,
+                enter = fadeIn(tween(150)) + expandVertically(tween(200, FastOutSlowInEasing)),
+                exit = fadeOut(tween(100)) + shrinkVertically(tween(160))
+            ) {
                 Text(
                     reasoning,
                     Modifier.padding(top = 8.dp),

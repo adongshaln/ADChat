@@ -40,8 +40,14 @@ fun ComposerContextRing(
         percent >= 85 -> Accent
         else -> Sage
     }
+    // 流式/打字时 percent 每个 token 都在变，220ms 的动画永远追不上目标，
+    // 数字和圆弧长期不同步。输入先经 250ms 节流，只在值稳定下来后才平滑过渡。
+    val settledPercent by produceState(initialValue = percent, percent) {
+        kotlinx.coroutines.delay(250)
+        value = percent
+    }
     val progress by animateFloatAsState(
-        targetValue = if (configured) (percent / 100f).coerceIn(0f, 1f) else 0f,
+        targetValue = if (configured) (settledPercent / 100f).coerceIn(0f, 1f) else 0f,
         animationSpec = tween(220),
         label = "context-ring"
     )
