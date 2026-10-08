@@ -375,7 +375,7 @@ fun ConversationReasoningPanel(
             }
             AnimatedVisibility(
                 visible = expanded,
-                enter = fadeIn(tween(150)) + expandVertically(tween(200, FastOutSlowInEasing)),
+                enter = fadeIn(tween(150)) + expandVertically(tween(200, easing = FastOutSlowInEasing)),
                 exit = fadeOut(tween(100)) + shrinkVertically(tween(160))
             ) {
                 Text(
