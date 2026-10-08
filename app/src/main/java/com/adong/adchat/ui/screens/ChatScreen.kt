@@ -765,15 +765,18 @@ private fun ToolActivitySummary(activities: List<ChatToolActivity>) {
         activities.size == 1 -> latest.label
         else -> "已完成 ${activities.size} 项工具操作"
     }
+    // 状态线性化：进行中是唯一的底色（过程态），完成态退成描边线，失败仍是危险底色。
+    // 以前完成态也发一整个色块，和过程态、异常态视觉权重一样，分不清轻重。
     Surface(
         onClick = { if (activities.size > 1) expanded = !expanded },
         color = when {
             failed -> DangerSoft
             running -> AccentSoft.copy(alpha = .72f)
-            else -> SageSoft.copy(alpha = .72f)
+            else -> Color.Transparent
         },
         contentColor = Ink,
         shape = RoundedCornerShape(13.dp),
+        border = if (running || failed) null else BorderStroke(1.dp, Hairline.copy(alpha = .8f)),
         // 高度动画只留 AnimatedVisibility 一层；工具状态在流式期间会反复刷新，
         // 再叠 animateContentSize 会让卡片高度持续微动画，和正文滚动叠加成噪声。
         modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
@@ -919,15 +922,14 @@ private fun TokenUsagePanel(usage: com.adong.adchat.data.TokenUsage) {
     } else {
         "输入 ${formatTokens(usage.inputTokens)}"
     }
+    // 结果态退到描边线：命中与否靠图标和文字的颜色区分，不再发一整块色块
+    // 和过程态、异常态争视觉权重。
     Surface(
         onClick = { expanded = !expanded },
-        color = when {
-            hasCache -> SageSoft
-            hasCacheWrite || (waitingForReuse && usage.cacheEligible) -> AccentSoft
-            else -> SurfaceInset
-        },
+        color = Color.Transparent,
         contentColor = Ink,
         shape = RoundedCornerShape(13.dp),
+        border = BorderStroke(1.dp, Hairline.copy(alpha = .8f)),
         modifier = Modifier.fillMaxWidth().padding(top = 9.dp)
     ) {
         Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp)) {
