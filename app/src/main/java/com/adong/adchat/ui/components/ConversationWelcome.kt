@@ -3,6 +3,7 @@ package com.adong.adchat.ui.components
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -23,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.adong.adchat.ui.theme.*
 
 data class ConversationStarter(val title: String, val detail: String, val icon: ImageVector, val prompt: String)
@@ -53,7 +55,8 @@ fun ConversationWelcome(
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Text(label, color = Accent, style = MaterialTheme.typography.labelMedium)
+            Text(label, color = Accent, style = MaterialTheme.typography.labelMedium,
+                letterSpacing = 1.2.sp)
             Spacer(Modifier.height(8.dp))
             Text(title, style = MaterialTheme.typography.headlineMedium, textAlign = TextAlign.Center)
             Spacer(Modifier.height(12.dp))
@@ -67,6 +70,7 @@ fun ConversationWelcome(
                         pair.forEach { starter ->
                             Surface(onClick = { onSelect(starter.prompt) }, color = Surface,
                                 shape = RoundedCornerShape(20.dp), border = BorderStroke(1.dp, Hairline.copy(alpha = .65f)),
+                                shadowElevation = 1.dp,
                                 modifier = Modifier.weight(1f).fillMaxHeight()) {
                                 Column(Modifier.padding(16.dp).defaultMinSize(minHeight = 88.dp)) {
                                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
@@ -93,9 +97,11 @@ fun ConversationWelcome(
 fun ConversationAuthor(error: Boolean = false) {
     // 名字后面不再拉一条横到右边缘的线：那是装饰不是分隔语义，
     // 长对话里每屏几条横线会让消息边界更乱，而不是更清楚。
-    Row(Modifier.padding(bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-        AsterMark(Modifier.size(20.dp), tint = if (error) Danger else Accent)
-        Text("Aster", Modifier.padding(start = 7.dp),
-            style = MaterialTheme.typography.labelMedium, color = MutedInk)
+    Row(Modifier.padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Surface(color = AccentSoft.copy(alpha = if (error) .35f else .8f), shape = CircleShape) {
+            AsterMark(Modifier.padding(4.dp).size(16.dp), tint = if (error) Danger else Accent)
+        }
+        Text("Aster", Modifier.padding(start = 8.dp),
+            style = MaterialTheme.typography.titleSmall, color = if (error) Danger else Ink.copy(alpha = .82f))
     }
 }

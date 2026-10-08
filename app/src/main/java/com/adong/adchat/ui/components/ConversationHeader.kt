@@ -26,7 +26,7 @@ fun ConversationHeader(
         verticalAlignment = Alignment.CenterVertically) {
         AsterIconButton(Icons.Rounded.Menu, "打开侧栏", onOpenDrawer)
         Column(Modifier.weight(1f).padding(start = 8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium,
+            Text(title, style = MaterialTheme.typography.titleLarge,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
             Surface(onClick = onModelClick, color = Color.Transparent, shape = MaterialTheme.shapes.small) {
                 Row(Modifier.heightIn(min = 32.dp).padding(end = 4.dp), verticalAlignment = Alignment.CenterVertically) {

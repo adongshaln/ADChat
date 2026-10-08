@@ -955,7 +955,13 @@ private fun SettingsDisclosure(
     content: @Composable ColumnScope.() -> Unit
 ) {
     var expanded by rememberSaveable { mutableStateOf(false) }
-    Surface(color = Surface, shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+    Surface(
+        color = Surface,
+        shape = RoundedCornerShape(22.dp),
+        border = BorderStroke(1.dp, Hairline.copy(alpha = .75f)),
+        shadowElevation = 1.dp,
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column {
             Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(16.dp),
                 verticalAlignment = Alignment.CenterVertically) {

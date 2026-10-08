@@ -33,6 +33,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -177,7 +178,11 @@ private fun AsterApp(vm: MainViewModel, incomingMediaText: String?, onMediaTextC
         Scaffold(containerColor = Canvas) { padding ->
             val edgeToEdgePage = page == AppPage.Chat || page == AppPage.Story
             val pageBottomPadding = if (edgeToEdgePage) 0.dp else padding.calculateBottomPadding()
-            Box(Modifier.fillMaxSize().padding(bottom = pageBottomPadding), contentAlignment = Alignment.TopCenter) {
+            Box(
+                Modifier.fillMaxSize().padding(bottom = pageBottomPadding)
+                    .background(Brush.verticalGradient(listOf(WarmWhite, Canvas, Canvas))),
+                contentAlignment = Alignment.TopCenter
+            ) {
                 AnimatedContent(
                     targetState = page,
                     modifier = Modifier.widthIn(max = 900.dp).fillMaxSize(),

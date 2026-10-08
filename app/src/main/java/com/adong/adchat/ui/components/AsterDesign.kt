@@ -44,7 +44,7 @@ fun AsterArtwork(modifier: Modifier = Modifier) {
 @Composable
 fun AsterWordmark(size: Int = 30, color: Color = Ink) {
     Text("Aster", fontFamily = AsterFontFamily, fontSize = size.sp,
-        letterSpacing = (-1).sp, color = color, fontWeight = FontWeight.Normal)
+        letterSpacing = (-0.4).sp, color = color, fontWeight = FontWeight.Medium)
 }
 
 @Composable
@@ -66,7 +66,7 @@ fun AsterPageHeader(
     Row(modifier.fillMaxWidth().heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
         AsterIconButton(Icons.Rounded.Menu, "打开侧栏", onOpenDrawer)
         Text(title, Modifier.weight(1f).padding(start = 6.dp),
-            style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
         actions()
     }
 }
@@ -90,8 +90,9 @@ fun AsterSegmentedControl(
             val selected = index == selectedIndex
             val fill by animateColorAsState(if (selected) Surface else Color.Transparent, tween(160), label = "segment-fill")
             Surface(color = fill,
-                shape = RoundedCornerShape(14.dp), shadowElevation = 0.dp,
+                shape = RoundedCornerShape(14.dp),
                 border = BorderStroke(1.dp, if (selected) Hairline else Color.Transparent),
+                shadowElevation = if (selected) 1.dp else 0.dp,
                 modifier = Modifier.weight(1f)) {
                 Box(Modifier.selectable(selected, enabled = enabled, role = Role.Tab,
                     onClick = { if (!selected) onSelect(index) }).heightIn(min = 48.dp)
@@ -111,7 +112,7 @@ fun AsterModelRow(
     icon: ImageVector = Icons.Rounded.Tune
 ) {
     Surface(onClick = onClick, color = Surface, shape = RoundedCornerShape(18.dp),
-        border = BorderStroke(1.dp, Hairline), modifier = modifier.fillMaxWidth()) {
+        border = BorderStroke(1.dp, Hairline), shadowElevation = 1.dp, modifier = modifier.fillMaxWidth()) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 13.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(icon, null, Modifier.size(20.dp), tint = Accent)
             Spacer(Modifier.width(12.dp))
