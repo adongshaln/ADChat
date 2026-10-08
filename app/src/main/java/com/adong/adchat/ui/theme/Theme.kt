@@ -168,6 +168,7 @@ private val typography = Typography(
     titleSmall = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 21.sp),
     bodyLarge = TextStyle(
         fontFamily = SerifFamily,
+        fontWeight = FontWeight.Medium,
         fontSize = 16.sp,
         lineHeight = 27.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
