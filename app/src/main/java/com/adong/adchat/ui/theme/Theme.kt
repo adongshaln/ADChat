@@ -10,6 +10,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.runtime.getValue
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
@@ -192,7 +196,28 @@ private val shapes = Shapes(
 @Composable
 fun AsterTheme(themeMode: String = THEME_MODE_ASTER, content: @Composable () -> Unit) {
     val dark = themeIsDark(themeMode)
-    val palette = if (dark) AsterPaletteDark else AsterPaletteLight
+    val target = if (dark) AsterPaletteDark else AsterPaletteLight
+    // 主题切换是全局反色，硬切会像闪屏。把整套调色板做过渡，每个颜色各自
+    // animateColorAsState，240ms 内从旧值平滑到新值，而不是瞬间换树。
+    val palette = AsterPalette(
+        canvas = animateColorAsState(target.canvas, tween(240, easing = FastOutSlowInEasing), label = "p-canvas").value,
+        surface = animateColorAsState(target.surface, tween(240, easing = FastOutSlowInEasing), label = "p-surface").value,
+        ink = animateColorAsState(target.ink, tween(240, easing = FastOutSlowInEasing), label = "p-ink").value,
+        mutedInk = animateColorAsState(target.mutedInk, tween(240, easing = FastOutSlowInEasing), label = "p-muted").value,
+        hairline = animateColorAsState(target.hairline, tween(240, easing = FastOutSlowInEasing), label = "p-hairline").value,
+        accent = animateColorAsState(target.accent, tween(240, easing = FastOutSlowInEasing), label = "p-accent").value,
+        accentSoft = animateColorAsState(target.accentSoft, tween(240, easing = FastOutSlowInEasing), label = "p-accentSoft").value,
+        sage = animateColorAsState(target.sage, tween(240, easing = FastOutSlowInEasing), label = "p-sage").value,
+        sageSoft = animateColorAsState(target.sageSoft, tween(240, easing = FastOutSlowInEasing), label = "p-sageSoft").value,
+        surfaceInset = animateColorAsState(target.surfaceInset, tween(240, easing = FastOutSlowInEasing), label = "p-inset").value,
+        warmWhite = animateColorAsState(target.warmWhite, tween(240, easing = FastOutSlowInEasing), label = "p-warm").value,
+        danger = animateColorAsState(target.danger, tween(240, easing = FastOutSlowInEasing), label = "p-danger").value,
+        dangerSoft = animateColorAsState(target.dangerSoft, tween(240, easing = FastOutSlowInEasing), label = "p-dangerSoft").value,
+        night = animateColorAsState(target.night, tween(240, easing = FastOutSlowInEasing), label = "p-night").value,
+        quoteAmber = animateColorAsState(target.quoteAmber, tween(240, easing = FastOutSlowInEasing), label = "p-amber").value,
+        bracketBlue = animateColorAsState(target.bracketBlue, tween(240, easing = FastOutSlowInEasing), label = "p-bracket").value,
+        amberSoft = animateColorAsState(target.amberSoft, tween(240, easing = FastOutSlowInEasing), label = "p-amberSoft").value
+    )
     CompositionLocalProvider(
         LocalAsterPalette provides palette,
         LocalThemeMode provides themeMode,

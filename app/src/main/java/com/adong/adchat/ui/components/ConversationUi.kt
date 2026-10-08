@@ -266,17 +266,20 @@ fun ConversationComposer(
 fun ConversationThinkingIndicator() {
     val density = LocalDensity.current
     val transition = rememberInfiniteTransition(label = "aster-thinking")
+    // 3.52s 一个循环太慢，像卡住了；思考态的目的是「证明系统还活着」，
+    // 节奏要偏快。1600ms 走 4 步（每步 400ms），呼吸周期取主周期的 1/4（400ms），
+    // 两者成整数倍关系，相位不再长期漂移。
     val motion by transition.animateFloat(
         initialValue = 0f,
         targetValue = 4f,
-        animationSpec = infiniteRepeatable(tween(3520, easing = LinearEasing)),
+        animationSpec = infiniteRepeatable(tween(1600, easing = LinearEasing)),
         label = "aster-thinking-motion"
     )
     val subtitleAlpha by transition.animateFloat(
         // 呼吸下限不低于 .72：再低这行小字在浅色画布上就模糊到读不出了。
         initialValue = .74f,
         targetValue = .94f,
-        animationSpec = infiniteRepeatable(tween(900), repeatMode = RepeatMode.Reverse),
+        animationSpec = infiniteRepeatable(tween(400), repeatMode = RepeatMode.Reverse),
         label = "aster-thinking-subtitle"
     )
     val step = motion.toInt().coerceIn(0, 3)

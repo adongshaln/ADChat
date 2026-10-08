@@ -9,6 +9,8 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
@@ -349,9 +351,18 @@ internal fun AppDrawer(
                     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         pair.forEach { item ->
                             val selected = currentPage == item
+                            // 选中态是高频反馈，硬切会显得没有落点；给 160ms 的颜色过渡。
+                            val selectionBg by animateColorAsState(
+                                if (selected) AccentSoft else Color.Transparent,
+                                tween(160, easing = FastOutSlowInEasing), label = "nav-bg"
+                            )
+                            val selectionInk by animateColorAsState(
+                                if (selected) Accent else MutedInk,
+                                tween(160, easing = FastOutSlowInEasing), label = "nav-ink"
+                            )
                             Surface(onClick = { onNavigate(item) }, modifier = Modifier.weight(1f),
-                                color = if (selected) AccentSoft else Color.Transparent,
-                                contentColor = if (selected) Accent else MutedInk, shape = RoundedCornerShape(12.dp)) {
+                                color = selectionBg,
+                                contentColor = selectionInk, shape = RoundedCornerShape(12.dp)) {
                                 Row(Modifier.heightIn(min = 48.dp).padding(horizontal = 12.dp, vertical = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically) {
                                     Icon(item.icon, null, Modifier.size(18.dp))
