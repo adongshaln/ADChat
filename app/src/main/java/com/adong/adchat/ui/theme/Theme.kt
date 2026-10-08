@@ -153,14 +153,19 @@ private fun AsterPalette.toColorScheme() = lightColorScheme(
     errorContainer = dangerSoft
 )
 
+// Claude 的阅读感来自衬线标题 + 衬线正文：FontFamily.Serif 在 Android 上
+// 解析到 Noto Serif（中英文都衬线），零打包体积。只把「阅读字」和「版面字」
+// 换到衬线，功能性 label/按钮仍用无衬线，克制而不是全套换皮。
+private val SerifFamily = FontFamily.Serif
+
 private val typography = Typography(
-    displaySmall = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 32.sp, lineHeight = 43.sp, letterSpacing = (-0.8).sp),
-    headlineMedium = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 28.sp, lineHeight = 37.sp, letterSpacing = (-0.6).sp),
-    titleLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 21.sp, lineHeight = 29.sp),
+    displaySmall = TextStyle(fontFamily = SerifFamily, fontWeight = FontWeight.Medium, fontSize = 32.sp, lineHeight = 43.sp, letterSpacing = (-0.8).sp),
+    headlineMedium = TextStyle(fontFamily = SerifFamily, fontWeight = FontWeight.Medium, fontSize = 28.sp, lineHeight = 37.sp, letterSpacing = (-0.6).sp),
+    titleLarge = TextStyle(fontFamily = SerifFamily, fontWeight = FontWeight.SemiBold, fontSize = 21.sp, lineHeight = 29.sp),
     titleMedium = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp),
     titleSmall = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 21.sp),
     bodyLarge = TextStyle(
-        fontFamily = FontFamily.SansSerif,
+        fontFamily = SerifFamily,
         fontSize = 16.sp,
         lineHeight = 27.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),

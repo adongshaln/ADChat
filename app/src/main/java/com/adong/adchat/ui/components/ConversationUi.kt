@@ -105,20 +105,9 @@ fun ConversationComposer(
         }
     }
     val enabledToSend = value.isNotBlank() || attachments.isNotEmpty() || configureRequired
-    val capsuleShape = RoundedCornerShape(31.dp)
-    val focusProgress by animateFloatAsState(
-        targetValue = if (isFocused) 1f else 0f,
-        animationSpec = tween(
-            durationMillis = if (isFocused) 230 else 180,
-            easing = FastOutSlowInEasing
-        ),
-        label = "composer-focus-progress"
-    )
-    val minimumHeight = 58.dp + 52.dp * focusProgress
-    val fieldStart = 58.dp - 40.dp * focusProgress
-    val fieldEnd = 58.dp - 40.dp * focusProgress
-    val fieldTop = 17.dp - 2.dp * focusProgress
-    val fieldBottom = 15.dp + 42.dp * focusProgress
+    // 输入条是恒定单列卡片：文本区在上、控制行在下，聚焦只改描边不改布局。
+    // 之前聚焦一次要同时动画 5 个尺寸 + maxLines 硬切，等于每次聚焦重新排版一次。
+    val cardShape = RoundedCornerShape(24.dp)
 
     Column(
         modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(top = 8.dp, bottom = 8.dp)
@@ -140,17 +129,17 @@ fun ConversationComposer(
         }
         Surface(
             color = Surface.copy(alpha = .97f),
-            shape = capsuleShape,
+            shape = cardShape,
             border = BorderStroke(1.dp, if (isFocused) Accent.copy(alpha = .35f) else Hairline),
             shadowElevation = 0.dp,
             modifier = Modifier.fillMaxWidth().testTag("$testTag-composer")
         ) {
-            Box(Modifier.fillMaxWidth().defaultMinSize(minHeight = minimumHeight)) {
+            Column(Modifier.fillMaxWidth()) {
                 BasicTextField(
                     value = fieldValue,
                     onValueChange = { if (!editorOpen) edit(it) },
                     modifier = Modifier.fillMaxWidth().testTag("$testTag-input").focusRequester(resolvedFocusRequester)
-                        .padding(start = fieldStart, end = fieldEnd, top = fieldTop, bottom = fieldBottom)
+                        .padding(start = 18.dp, end = 18.dp, top = 15.dp)
                         .heightIn(min = 24.dp, max = 132.dp)
                         .onFocusChanged { state ->
                             if (isFocused != state.isFocused) {
@@ -160,7 +149,7 @@ fun ConversationComposer(
                         },
                     textStyle = MaterialTheme.typography.bodyLarge.copy(color = Ink),
                     cursorBrush = SolidColor(Accent),
-                    maxLines = if (isFocused) 5 else 1,
+                    maxLines = 5,
                     keyboardOptions = KeyboardOptions(
                         capitalization = KeyboardCapitalization.Sentences,
                         imeAction = ImeAction.Send
@@ -187,9 +176,7 @@ fun ConversationComposer(
                     }
                 )
                 Row(
-                    // 48dp 主控按钮放进 60dp 行高，纵向留 6dp；三个按钮之间留 2dp 间隙。
-                    Modifier.align(Alignment.BottomCenter).fillMaxWidth().height(60.dp)
-                        .padding(horizontal = 2.dp, vertical = 6.dp),
+                    Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 10.dp),
                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
