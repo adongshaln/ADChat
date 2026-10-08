@@ -1324,7 +1324,12 @@ internal fun StoryMessageItem(
             horizontalAlignment = if (user) Alignment.End else Alignment.Start
         ) {
             if (user) {
-                Surface(color = SurfaceInset, contentColor = Ink, shape = RoundedCornerShape(20.dp)) {
+                Surface(
+                    color = SurfaceInset,
+                    contentColor = Ink,
+                    shape = RoundedCornerShape(22.dp),
+                    border = BorderStroke(1.dp, Hairline.copy(alpha = .55f))
+                ) {
                     Column(Modifier.padding(7.dp)) {
                         if (row.revision.attachments.isNotEmpty()) ConversationImages(row.revision.attachments)
                         if (row.revision.content.isNotBlank()) {

@@ -561,7 +561,8 @@ private fun ChatMessageItem(
                 Surface(
                     // 右下的 8dp 小角是 iMessage「气泡尖角指向发送者」的语言；
                     // AI 消息不用气泡时，用户气泡不需要方向性，对称圆角更一致。
-                    color = SurfaceInset, contentColor = Ink, shape = RoundedCornerShape(20.dp),
+                    color = SurfaceInset, contentColor = Ink, shape = RoundedCornerShape(22.dp),
+                    border = BorderStroke(1.dp, Hairline.copy(alpha = .55f)),
                     modifier = Modifier.pointerInput(message.id) {
                         detectTapGestures(onLongPress = { onEditResend() })
                     }

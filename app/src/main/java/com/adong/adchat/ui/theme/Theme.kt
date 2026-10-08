@@ -13,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.graphics.Color
@@ -137,6 +138,9 @@ val QuoteAmber @Composable get() = LocalAsterPalette.current.quoteAmber
 val BracketBlue @Composable get() = LocalAsterPalette.current.bracketBlue
 val AmberSoft @Composable get() = LocalAsterPalette.current.amberSoft
 
+/** 收尾很慢的缓出。页面和品牌动画用它，避免线性滑动的硬停。 */
+val AsterEase = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
+
 private fun AsterPalette.toColorScheme() = lightColorScheme(
     primary = ink,
     onPrimary = warmWhite,
@@ -183,8 +187,8 @@ private fun asterFontFamily(baseWeight: Int): FontFamily = FontFamily(
 )
 
 private fun asterTypography(fontFamily: FontFamily) = Typography(
-    displaySmall = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 32.sp, lineHeight = 43.sp, letterSpacing = (-0.8).sp),
-    headlineMedium = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 28.sp, lineHeight = 37.sp, letterSpacing = (-0.6).sp),
+    displaySmall = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 32.sp, lineHeight = 44.sp, letterSpacing = (-0.2).sp),
+    headlineMedium = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 28.sp, lineHeight = 38.sp, letterSpacing = (-0.15).sp),
     titleLarge = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.SemiBold, fontSize = 21.sp, lineHeight = 29.sp),
     titleMedium = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp),
     titleSmall = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 21.sp),

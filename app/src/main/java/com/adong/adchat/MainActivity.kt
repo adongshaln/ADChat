@@ -183,10 +183,10 @@ private fun AsterApp(vm: MainViewModel, incomingMediaText: String?, onMediaTextC
                     modifier = Modifier.widthIn(max = 900.dp).fillMaxSize(),
                     transitionSpec = {
                         val forward = targetState.ordinal > initialState.ordinal
-                        val enterOffset: (Int) -> Int = { width -> if (forward) width / 10 else -width / 10 }
-                        val exitOffset: (Int) -> Int = { width -> if (forward) -width / 14 else width / 14 }
-                        (fadeIn(tween(160)) + slideInHorizontally(tween(200), initialOffsetX = enterOffset)) togetherWith
-                            (fadeOut(tween(130)) + slideOutHorizontally(tween(170), targetOffsetX = exitOffset))
+                        val enterOffset: (Int) -> Int = { width -> if (forward) width / 18 else -width / 18 }
+                        val exitOffset: (Int) -> Int = { width -> if (forward) -width / 22 else width / 22 }
+                        (fadeIn(tween(280, easing = AsterEase)) + slideInHorizontally(tween(340, easing = AsterEase), initialOffsetX = enterOffset)) togetherWith
+                            (fadeOut(tween(180, easing = AsterEase)) + slideOutHorizontally(tween(240, easing = AsterEase), targetOffsetX = exitOffset))
                     },
                     label = "page-transition"
                 ) { target ->

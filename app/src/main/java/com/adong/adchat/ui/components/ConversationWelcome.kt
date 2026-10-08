@@ -8,7 +8,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.NorthEast
 import androidx.compose.material3.*
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -33,8 +42,15 @@ fun ConversationWelcome(
         Column(Modifier.widthIn(max = 560.dp).fillMaxWidth()
             .verticalScroll(rememberScrollState()).padding(horizontal = 24.dp, vertical = 28.dp),
             horizontalAlignment = Alignment.CenterHorizontally) {
-            Surface(color = AccentSoft.copy(alpha = .65f), shape = RoundedCornerShape(24.dp)) {
-                AsterMark(Modifier.padding(10.dp).size(42.dp))
+            var revealed by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) { revealed = true }
+            AnimatedVisibility(
+                visible = revealed,
+                enter = fadeIn(tween(420, easing = AsterEase)) + slideInVertically(tween(520, easing = AsterEase)) { it / 5 }
+            ) {
+                Surface(color = AccentSoft.copy(alpha = .72f), shape = RoundedCornerShape(28.dp)) {
+                    AsterMark(Modifier.padding(12.dp).size(44.dp))
+                }
             }
             Spacer(Modifier.height(16.dp))
             Text(label, color = Accent, style = MaterialTheme.typography.labelMedium)

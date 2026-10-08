@@ -107,7 +107,7 @@ fun ConversationComposer(
     val enabledToSend = value.isNotBlank() || attachments.isNotEmpty() || configureRequired
     // 输入条是恒定单列卡片：文本区在上、控制行在下，聚焦只改描边不改布局。
     // 之前聚焦一次要同时动画 5 个尺寸 + maxLines 硬切，等于每次聚焦重新排版一次。
-    val cardShape = RoundedCornerShape(24.dp)
+    val cardShape = RoundedCornerShape(28.dp)
 
     Column(
         modifier.fillMaxWidth().padding(horizontal = 14.dp).padding(top = 8.dp, bottom = 8.dp)
@@ -130,8 +130,8 @@ fun ConversationComposer(
         Surface(
             color = Surface.copy(alpha = .97f),
             shape = cardShape,
-            border = BorderStroke(1.dp, if (isFocused) Accent.copy(alpha = .35f) else Hairline),
-            shadowElevation = 0.dp,
+            border = BorderStroke(1.dp, if (isFocused) Accent.copy(alpha = .42f) else Hairline.copy(alpha = .9f)),
+            shadowElevation = 2.dp,
             modifier = Modifier.fillMaxWidth().testTag("$testTag-composer")
         ) {
             Column(Modifier.fillMaxWidth()) {
@@ -233,8 +233,8 @@ fun ConversationComposer(
                         AnimatedContent(
                             targetState = loading,
                             transitionSpec = {
-                                (fadeIn(tween(140)) + scaleIn(tween(180), initialScale = .72f)) togetherWith
-                                    (fadeOut(tween(100)) + scaleOut(tween(120), targetScale = .72f))
+                                fadeIn(tween(180, easing = FastOutSlowInEasing)) togetherWith
+                                    fadeOut(tween(120, easing = FastOutSlowInEasing))
                             },
                             label = "send-stop"
                         ) { isLoading ->
@@ -253,33 +253,25 @@ fun ConversationComposer(
 fun ConversationThinkingIndicator() {
     val density = LocalDensity.current
     val transition = rememberInfiniteTransition(label = "aster-thinking")
-    // 3.52s 一个循环太慢，像卡住了；思考态的目的是「证明系统还活着」，
-    // 节奏要偏快。1600ms 走 4 步（每步 400ms），呼吸周期取主周期的 1/4（400ms），
-    // 两者成整数倍关系，相位不再长期漂移。
-    val motion by transition.animateFloat(
+    val float by transition.animateFloat(
         initialValue = 0f,
-        targetValue = 4f,
-        animationSpec = infiniteRepeatable(tween(1600, easing = LinearEasing)),
-        label = "aster-thinking-motion"
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(2800, easing = LinearEasing), repeatMode = RepeatMode.Restart),
+        label = "aster-thinking-float"
+    )
+    val sway by transition.animateFloat(
+        initialValue = -7f,
+        targetValue = 7f,
+        animationSpec = infiniteRepeatable(tween(2200, easing = FastOutSlowInEasing), repeatMode = RepeatMode.Reverse),
+        label = "aster-thinking-sway"
     )
     val subtitleAlpha by transition.animateFloat(
-        // 呼吸下限不低于 .72：再低这行小字在浅色画布上就模糊到读不出了。
-        initialValue = .74f,
-        targetValue = .94f,
-        animationSpec = infiniteRepeatable(tween(400), repeatMode = RepeatMode.Reverse),
+        initialValue = .78f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(1400, easing = FastOutSlowInEasing), repeatMode = RepeatMode.Reverse),
         label = "aster-thinking-subtitle"
     )
-    val step = motion.toInt().coerceIn(0, 3)
-    val local = (motion - step).coerceIn(0f, 1f)
-    val hopPortion = .62f
-    val hopProgress = (local / hopPortion).coerceIn(0f, 1f)
-    val eased = hopProgress * hopProgress * (3f - 2f * hopProgress)
-    val jumpPx = if (local < hopPortion) {
-        with(density) { (-6.dp).toPx() } * sin(PI * hopProgress).toFloat()
-    } else {
-        0f
-    }
-    val rotation = step * 90f + if (local < hopPortion) eased * 90f else 90f
+    val lift = with(density) { 3.dp.toPx() } * sin(PI * float).toFloat()
 
     Row(
         Modifier.heightIn(min = 46.dp),
@@ -288,8 +280,8 @@ fun ConversationThinkingIndicator() {
         Box(Modifier.size(34.dp), contentAlignment = Alignment.Center) {
             AsterArtwork(
                 Modifier.size(28.dp).graphicsLayer {
-                    translationY = jumpPx
-                    rotationZ = rotation
+                    translationY = -lift
+                    rotationZ = sway
                 }
             )
         }
