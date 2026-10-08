@@ -20,6 +20,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.LineHeightStyle
+import android.graphics.Paint
 import android.graphics.Typeface
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
@@ -171,10 +172,12 @@ private fun AsterPalette.toColorScheme() = lightColorScheme(
 // Compose 的 res/font 加载会丢掉 variationSettings，可变字体因此一直停在默认的
 // wght 200。这里用 Typeface.Builder 把滑轨数值直接写进轴，字重才会真的变。
 private fun asterFontFamily(context: android.content.Context, axisWeight: Int): FontFamily {
-    val face = Typeface.Builder(context.resources, R.font.noto_serif_sc_variable)
-        .setFontVariationSettings("'wght' ${axisWeight.coerceIn(200, 900)}")
-        .build()
-    return FontFamily(face)
+    val base = context.resources.getFont(R.font.noto_serif_sc_variable)
+    val paint = Paint().apply {
+        typeface = base
+        fontVariationSettings = "'wght' ${axisWeight.coerceIn(200, 900)}"
+    }
+    return FontFamily(paint.typeface ?: base)
 }
 
 private fun asterTypography(fontFamily: FontFamily) = Typography(
