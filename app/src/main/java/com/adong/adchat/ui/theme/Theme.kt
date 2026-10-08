@@ -20,8 +20,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.LineHeightStyle
-import android.graphics.Paint
 import android.graphics.Typeface
+import java.io.File
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -169,15 +169,19 @@ private fun AsterPalette.toColorScheme() = lightColorScheme(
     errorContainer = dangerSoft
 )
 
-// Compose 的 res/font 加载会丢掉 variationSettings，可变字体因此一直停在默认的
-// wght 200。这里用 Typeface.Builder 把滑轨数值直接写进轴，字重才会真的变。
+// Paint.getTypeface() 不会带回 setFontVariationSettings 的结果，所以滑轨改了也还是默认细字。
+// 必须在 Typeface.Builder 创建时写入 wght，这个轴才会进到真正用来画字的对象。
 private fun asterFontFamily(context: android.content.Context, axisWeight: Int): FontFamily {
-    val base = context.resources.getFont(R.font.noto_serif_sc_variable)
-    val paint = Paint().apply {
-        typeface = base
-        fontVariationSettings = "'wght' ${axisWeight.coerceIn(200, 900)}"
+    val file = File(context.cacheDir, "noto_serif_sc_variable.ttf")
+    if (file.length() < 1024) {
+        context.resources.openRawResource(R.font.noto_serif_sc_variable).use { input ->
+            file.outputStream().use { input.copyTo(it) }
+        }
     }
-    return FontFamily(paint.typeface ?: base)
+    val face = Typeface.Builder(file)
+        .setFontVariationSettings("'wght' ${axisWeight.coerceIn(200, 900)}")
+        .build()
+    return FontFamily(face)
 }
 
 private fun asterTypography(fontFamily: FontFamily) = Typography(
