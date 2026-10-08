@@ -484,6 +484,17 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         persist()
     }
 
+    fun setFontWeight(weight: Int, save: Boolean = true) {
+        val normalized = weight.coerceIn(FONT_WEIGHT_MIN, FONT_WEIGHT_MAX)
+        if (appConfig.fontWeight == normalized) return
+        appConfig = appConfig.copy(fontWeight = normalized)
+        if (save) persist()
+    }
+
+    fun commitFontWeight() {
+        persist()
+    }
+
     fun testProfile(profile: ApiProfile, onUpdatedDraft: ((ApiProfile) -> Unit)? = null) {
         val tested = profile.normalized()
         val invalidHeaders = tested.invalidExtraHeaderLines()

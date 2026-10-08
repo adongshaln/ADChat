@@ -9,6 +9,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.runtime.getValue
 import androidx.compose.animation.animateColorAsState
@@ -26,6 +27,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.adong.adchat.R
+import com.adong.adchat.data.DEFAULT_FONT_WEIGHT
+import com.adong.adchat.data.FONT_WEIGHT_MAX
+import com.adong.adchat.data.FONT_WEIGHT_MIN
 import com.adong.adchat.data.THEME_MODE_ASTER
 import com.adong.adchat.data.THEME_MODE_DARK
 import com.adong.adchat.data.THEME_MODE_SYSTEM
@@ -102,6 +106,10 @@ val AsterPaletteDark = AsterPalette(
 val LocalAsterPalette = staticCompositionLocalOf { AsterPaletteLight }
 val LocalThemeMode = staticCompositionLocalOf { THEME_MODE_ASTER }
 val LocalThemeDark = staticCompositionLocalOf { false }
+private val LocalAsterFontFamily = staticCompositionLocalOf { FontFamily.Default }
+
+internal val AsterFontFamily: FontFamily
+    @Composable get() = LocalAsterFontFamily.current
 
 @Composable
 fun themeIsDark(themeMode: String): Boolean = when (themeMode) {
@@ -158,34 +166,30 @@ private fun AsterPalette.toColorScheme() = lightColorScheme(
 )
 
 // Noto Serif SC 提供简体中文、拉丁文及常见扩展脚本，并通过 wght 轴覆盖 200–900。
-// 同一资源声明多个轴值，让 Compose 使用真实的可变字重，而不是合成粗体。
+// 滑轨改变基础轴值，同时保留普通、Medium、SemiBold、Bold 之间的层级差。
 @OptIn(ExperimentalTextApi::class)
-private fun notoSerifFont(weight: Int): Font = Font(
+private fun notoSerifFont(weight: FontWeight, axisWeight: Int): Font = Font(
     R.font.noto_serif_sc_variable,
-    weight = FontWeight(weight),
-    variationSettings = FontVariation.Settings(FontVariation.weight(weight))
+    weight = weight,
+    variationSettings = FontVariation.Settings(FontVariation.weight(axisWeight.coerceIn(200, 900)))
 )
 
 @OptIn(ExperimentalTextApi::class)
-internal val AsterFontFamily = FontFamily(
-    notoSerifFont(200),
-    notoSerifFont(300),
-    notoSerifFont(400),
-    notoSerifFont(500),
-    notoSerifFont(600),
-    notoSerifFont(700),
-    notoSerifFont(800),
-    notoSerifFont(900)
+private fun asterFontFamily(baseWeight: Int): FontFamily = FontFamily(
+    notoSerifFont(FontWeight.Normal, baseWeight),
+    notoSerifFont(FontWeight.Medium, baseWeight + 100),
+    notoSerifFont(FontWeight.SemiBold, baseWeight + 200),
+    notoSerifFont(FontWeight.Bold, baseWeight + 300)
 )
 
-private val typography = Typography(
-    displaySmall = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.Medium, fontSize = 32.sp, lineHeight = 43.sp, letterSpacing = (-0.8).sp),
-    headlineMedium = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.Medium, fontSize = 28.sp, lineHeight = 37.sp, letterSpacing = (-0.6).sp),
-    titleLarge = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 21.sp, lineHeight = 29.sp),
-    titleMedium = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp),
-    titleSmall = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 21.sp),
+private fun asterTypography(fontFamily: FontFamily) = Typography(
+    displaySmall = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 32.sp, lineHeight = 43.sp, letterSpacing = (-0.8).sp),
+    headlineMedium = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 28.sp, lineHeight = 37.sp, letterSpacing = (-0.6).sp),
+    titleLarge = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.SemiBold, fontSize = 21.sp, lineHeight = 29.sp),
+    titleMedium = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp),
+    titleSmall = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 21.sp),
     bodyLarge = TextStyle(
-        fontFamily = AsterFontFamily,
+        fontFamily = fontFamily,
         fontWeight = FontWeight.SemiBold,
         fontSize = 16.sp,
         lineHeight = 27.sp,
@@ -193,7 +197,7 @@ private val typography = Typography(
         lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
     ),
     bodyMedium = TextStyle(
-        fontFamily = AsterFontFamily,
+        fontFamily = fontFamily,
         fontSize = 14.sp,
         lineHeight = 22.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
@@ -202,15 +206,15 @@ private val typography = Typography(
     // 全站约 20 处说明性小字都在用 bodySmall，不定义就会悄悄回落到 M3 默认值
     // （12sp / 16sp 行高），两行说明放不下。这里把它显式定下来。
     bodySmall = TextStyle(
-        fontFamily = AsterFontFamily,
+        fontFamily = fontFamily,
         fontSize = 12.sp,
         lineHeight = 18.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
         lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
     ),
-    labelLarge = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
-    labelMedium = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 18.sp),
-    labelSmall = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp)
+    labelLarge = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
+    labelMedium = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 18.sp),
+    labelSmall = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp)
 )
 
 private val shapes = Shapes(
@@ -220,8 +224,15 @@ private val shapes = Shapes(
 )
 
 @Composable
-fun AsterTheme(themeMode: String = THEME_MODE_ASTER, content: @Composable () -> Unit) {
+fun AsterTheme(
+    themeMode: String = THEME_MODE_ASTER,
+    fontWeight: Int = DEFAULT_FONT_WEIGHT,
+    content: @Composable () -> Unit
+) {
     val dark = themeIsDark(themeMode)
+    val normalizedWeight = fontWeight.coerceIn(FONT_WEIGHT_MIN, FONT_WEIGHT_MAX)
+    val fontFamily = remember(normalizedWeight) { asterFontFamily(normalizedWeight) }
+    val typography = remember(fontFamily) { asterTypography(fontFamily) }
     val target = if (dark) AsterPaletteDark else AsterPaletteLight
     // 主题切换是全局反色，硬切会像闪屏。把整套调色板做过渡，每个颜色各自
     // animateColorAsState，240ms 内从旧值平滑到新值，而不是瞬间换树。
@@ -247,7 +258,8 @@ fun AsterTheme(themeMode: String = THEME_MODE_ASTER, content: @Composable () -> 
     CompositionLocalProvider(
         LocalAsterPalette provides palette,
         LocalThemeMode provides themeMode,
-        LocalThemeDark provides dark
+        LocalThemeDark provides dark,
+        LocalAsterFontFamily provides fontFamily
     ) {
         MaterialTheme(
             colorScheme = palette.toColorScheme(),

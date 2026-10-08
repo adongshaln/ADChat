@@ -30,6 +30,20 @@ class ThemeModePersistenceTest {
         assertEquals(THEME_MODE_SYSTEM, ConfigStore(context).load().themeMode)
     }
 
+    @Test fun fontWeightPersistsAndClampsToSupportedRange() {
+        val context = RuntimeEnvironment.getApplication()
+        val store = ConfigStore(context)
+        store.save(config(THEME_MODE_ASTER).copy(fontWeight = 550))
+        assertEquals(550, store.load().fontWeight)
+
+        val prefs = context.getSharedPreferences("adchat_api_config", Context.MODE_PRIVATE)
+        val raw = prefs.getString("appConfigV2", null).orEmpty()
+        prefs.edit()
+            .putString("appConfigV2", raw.replace("\"fontWeight\":550", "\"fontWeight\":999"))
+            .commit()
+        assertEquals(FONT_WEIGHT_MAX, store.load().fontWeight)
+    }
+
     @Test fun unknownStoredValueFallsBackToLight() {
         val context = RuntimeEnvironment.getApplication()
         val store = ConfigStore(context)

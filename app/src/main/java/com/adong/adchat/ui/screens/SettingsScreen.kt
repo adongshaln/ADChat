@@ -46,6 +46,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.adong.adchat.data.ApiModel
 import com.adong.adchat.data.ApiProfile
+import com.adong.adchat.data.DEFAULT_FONT_WEIGHT
+import com.adong.adchat.data.FONT_WEIGHT_MAX
+import com.adong.adchat.data.FONT_WEIGHT_MIN
 import com.adong.adchat.data.THEME_MODE_ASTER
 import com.adong.adchat.data.THEME_MODE_DARK
 import com.adong.adchat.data.THEME_MODE_SYSTEM
@@ -70,6 +73,7 @@ import com.adong.adchat.ui.components.AdSelectionSheet
 import com.adong.adchat.ui.components.RouteKind
 import com.adong.adchat.ui.components.*
 import com.adong.adchat.ui.theme.*
+import kotlin.math.roundToInt
 
 @Composable
 fun SettingsScreen(vm: MainViewModel, onOpenDrawer: () -> Unit) {
@@ -174,7 +178,7 @@ private fun SettingsHome(vm: MainViewModel, onOpenDrawer: () -> Unit, onEdit: (A
                 }
             }
             item {
-                SettingsDisclosure("外观", "浅色、深色或跟随系统", Icons.Rounded.Palette) {
+                SettingsDisclosure("外观", "浅色、深色或跟随系统 · 阅读字重可调", Icons.Rounded.Palette) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         ThemeModeCard("浅色", THEME_MODE_ASTER, AsterPaletteLight,
                             vm.appConfig.themeMode, vm::setThemeMode, Modifier.weight(1f))
@@ -183,6 +187,30 @@ private fun SettingsHome(vm: MainViewModel, onOpenDrawer: () -> Unit, onEdit: (A
                         ThemeModeCard("跟随系统", THEME_MODE_SYSTEM, null,
                             vm.appConfig.themeMode, vm::setThemeMode, Modifier.weight(1f))
                     }
+                    Spacer(Modifier.height(18.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text("阅读字重", style = MaterialTheme.typography.titleSmall)
+                            Text("拖动滑轨即时调整普通界面文字的粗细", color = MutedInk, style = MaterialTheme.typography.bodySmall)
+                        }
+                        Text(vm.appConfig.fontWeight.toString(), style = MaterialTheme.typography.labelLarge, color = Accent)
+                    }
+                    Slider(
+                        value = vm.appConfig.fontWeight.toFloat(),
+                        onValueChange = { vm.setFontWeight(it.roundToInt(), save = false) },
+                        onValueChangeFinished = vm::commitFontWeight,
+                        valueRange = FONT_WEIGHT_MIN.toFloat()..FONT_WEIGHT_MAX.toFloat(),
+                        steps = FONT_WEIGHT_MAX - FONT_WEIGHT_MIN - 1,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                        Text("细", color = MutedInk, style = MaterialTheme.typography.labelSmall)
+                        Text("粗", color = MutedInk, style = MaterialTheme.typography.labelSmall)
+                    }
+                    TextButton(
+                        onClick = { vm.setFontWeight(DEFAULT_FONT_WEIGHT) },
+                        modifier = Modifier.align(Alignment.End)
+                    ) { Text("恢复默认") }
                 }
             }
             item { com.adong.adchat.ui.components.SkillPickerEntry(null) }

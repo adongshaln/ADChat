@@ -83,6 +83,9 @@ fun ApiProfile.invalidExtraHeaderLines(): List<String> = extraHeaders.lineSequen
 const val THEME_MODE_ASTER = "aster"
 const val THEME_MODE_DARK = "dark"
 const val THEME_MODE_SYSTEM = "system"
+const val FONT_WEIGHT_MIN = 300
+const val FONT_WEIGHT_MAX = 600
+const val DEFAULT_FONT_WEIGHT = 500
 
 data class AppConfig(
     val profiles: List<ApiProfile>,
@@ -92,7 +95,8 @@ data class AppConfig(
     val activeSearchProfileId: String = activeChatProfileId,
     val allowXSearch: Boolean = false,
     val systemPrompt: String = DEFAULT_SYSTEM_PROMPT,
-    val themeMode: String = THEME_MODE_ASTER
+    val themeMode: String = THEME_MODE_ASTER,
+    val fontWeight: Int = DEFAULT_FONT_WEIGHT
 ) {
     fun chatProfile(): ApiProfile = profiles.firstOrNull { it.id == activeChatProfileId } ?: profiles.first()
     fun imageProfile(): ApiProfile = profiles.firstOrNull { it.id == activeImageProfileId } ?: profiles.first()
@@ -188,6 +192,7 @@ class ConfigStore(context: Context) {
         .put("allowXSearch", config.allowXSearch)
         .put("systemPrompt", config.systemPrompt)
         .put("themeMode", config.themeMode)
+        .put("fontWeight", config.fontWeight)
         .put("profiles", JSONArray().apply {
             config.profiles.forEach { profile ->
                 put(JSONObject()
@@ -271,7 +276,8 @@ class ConfigStore(context: Context) {
                 ?: profiles.first().id,
             allowXSearch = root.optBoolean("allowXSearch", false),
             systemPrompt = migrateSystemPrompt(root.optString("systemPrompt").ifBlank { DEFAULT_SYSTEM_PROMPT }),
-            themeMode = root.optString("themeMode").takeIf { it in setOf(THEME_MODE_DARK, THEME_MODE_SYSTEM) } ?: THEME_MODE_ASTER
+            themeMode = root.optString("themeMode").takeIf { it in setOf(THEME_MODE_DARK, THEME_MODE_SYSTEM) } ?: THEME_MODE_ASTER,
+            fontWeight = root.optInt("fontWeight", DEFAULT_FONT_WEIGHT).coerceIn(FONT_WEIGHT_MIN, FONT_WEIGHT_MAX)
         )
     }
 

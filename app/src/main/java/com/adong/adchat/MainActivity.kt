@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
                                      else androidx.activity.SystemBarStyle.light(android.graphics.Color.TRANSPARENT, android.graphics.Color.TRANSPARENT)
                 )
             }
-            AsterTheme(themeMode = themeMode) {
+            AsterTheme(themeMode = themeMode, fontWeight = viewModel.appConfig.fontWeight) {
                 AsterApp(
                     vm = viewModel,
                     incomingMediaText = pendingMediaShare,
