@@ -1717,7 +1717,7 @@ private fun basicInlineMarkdown(text: String): AnnotatedString = buildAnnotatedS
                 val style = when (token) {
                     "**", "__" -> SpanStyle(fontWeight = FontWeight.Bold)
                     "~~" -> SpanStyle(textDecoration = TextDecoration.LineThrough)
-                    "`" -> SpanStyle(fontFamily = FontFamily.Monospace, background = SurfaceInset, color = Ink)
+                    "`" -> SpanStyle(fontFamily = FontFamily.Monospace, color = Accent)
                     else -> SpanStyle(fontStyle = FontStyle.Italic)
                 }
                 pushStyle(style)

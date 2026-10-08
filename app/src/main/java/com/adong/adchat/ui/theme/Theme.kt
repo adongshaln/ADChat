@@ -20,10 +20,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.LineHeightStyle
-import androidx.compose.ui.text.ExperimentalTextApi
-import androidx.compose.ui.text.font.Font
+import android.graphics.Typeface
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
@@ -169,22 +168,14 @@ private fun AsterPalette.toColorScheme() = lightColorScheme(
     errorContainer = dangerSoft
 )
 
-// Noto Serif SC 提供简体中文、拉丁文及常见扩展脚本，并通过 wght 轴覆盖 200–900。
-// 滑轨改变基础轴值，同时保留普通、Medium、SemiBold、Bold 之间的层级差。
-@OptIn(ExperimentalTextApi::class)
-private fun notoSerifFont(weight: FontWeight, axisWeight: Int): Font = Font(
-    R.font.noto_serif_sc_variable,
-    weight = weight,
-    variationSettings = FontVariation.Settings(FontVariation.weight(axisWeight.coerceIn(200, 900)))
-)
-
-@OptIn(ExperimentalTextApi::class)
-private fun asterFontFamily(baseWeight: Int): FontFamily = FontFamily(
-    notoSerifFont(FontWeight.Normal, baseWeight),
-    notoSerifFont(FontWeight.Medium, baseWeight + 100),
-    notoSerifFont(FontWeight.SemiBold, baseWeight + 200),
-    notoSerifFont(FontWeight.Bold, baseWeight + 300)
-)
+// Compose 的 res/font 加载会丢掉 variationSettings，可变字体因此一直停在默认的
+// wght 200。这里用 Typeface.Builder 把滑轨数值直接写进轴，字重才会真的变。
+private fun asterFontFamily(context: android.content.Context, axisWeight: Int): FontFamily {
+    val face = Typeface.Builder(context.resources, R.font.noto_serif_sc_variable)
+        .setFontVariationSettings("'wght' ${axisWeight.coerceIn(200, 900)}")
+        .build()
+    return FontFamily(face)
+}
 
 private fun asterTypography(fontFamily: FontFamily) = Typography(
     displaySmall = TextStyle(fontFamily = fontFamily, fontWeight = FontWeight.Medium, fontSize = 32.sp, lineHeight = 44.sp, letterSpacing = (-0.2).sp),
@@ -234,8 +225,9 @@ fun AsterTheme(
     content: @Composable () -> Unit
 ) {
     val dark = themeIsDark(themeMode)
+    val context = LocalContext.current
     val normalizedWeight = fontWeight.coerceIn(FONT_WEIGHT_MIN, FONT_WEIGHT_MAX)
-    val fontFamily = remember(normalizedWeight) { asterFontFamily(normalizedWeight) }
+    val fontFamily = remember(normalizedWeight) { asterFontFamily(context, normalizedWeight) }
     val typography = remember(fontFamily) { asterTypography(fontFamily) }
     val target = if (dark) AsterPaletteDark else AsterPaletteLight
     // 主题切换是全局反色，硬切会像闪屏。把整套调色板做过渡，每个颜色各自

@@ -83,9 +83,9 @@ fun ApiProfile.invalidExtraHeaderLines(): List<String> = extraHeaders.lineSequen
 const val THEME_MODE_ASTER = "aster"
 const val THEME_MODE_DARK = "dark"
 const val THEME_MODE_SYSTEM = "system"
-const val FONT_WEIGHT_MIN = 300
-const val FONT_WEIGHT_MAX = 600
-const val DEFAULT_FONT_WEIGHT = 500
+const val FONT_WEIGHT_MIN = 400
+const val FONT_WEIGHT_MAX = 900
+const val DEFAULT_FONT_WEIGHT = 650
 
 data class AppConfig(
     val profiles: List<ApiProfile>,

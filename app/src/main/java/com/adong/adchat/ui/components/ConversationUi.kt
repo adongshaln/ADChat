@@ -483,8 +483,8 @@ fun ConversationSheetAction(
 fun ConversationReadingVeil(modifier: Modifier = Modifier) {
     Box(modifier.background(Brush.verticalGradient(
         0f to Color.Transparent,
-        .46f to Canvas.copy(alpha = .38f),
-        1f to Canvas.copy(alpha = .96f)
+        .22f to Canvas.copy(alpha = .72f),
+        1f to Canvas
     )))
 }
 
