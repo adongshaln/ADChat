@@ -75,10 +75,11 @@ fun ConversationWelcome(
 
 @Composable
 fun ConversationAuthor(error: Boolean = false) {
-    Row(Modifier.fillMaxWidth().padding(bottom = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+    // 名字后面不再拉一条横到右边缘的线：那是装饰不是分隔语义，
+    // 长对话里每屏几条横线会让消息边界更乱，而不是更清楚。
+    Row(Modifier.padding(bottom = 14.dp), verticalAlignment = Alignment.CenterVertically) {
         AsterMark(Modifier.size(20.dp), tint = if (error) Danger else Accent)
-        Text("Aster", Modifier.padding(start = 7.dp, end = 12.dp),
+        Text("Aster", Modifier.padding(start = 7.dp),
             style = MaterialTheme.typography.labelMedium, color = MutedInk)
-        HorizontalDivider(Modifier.weight(1f), color = Hairline.copy(alpha = .7f))
     }
 }

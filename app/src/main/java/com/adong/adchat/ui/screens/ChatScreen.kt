@@ -560,7 +560,9 @@ private fun ChatMessageItem(
         ) {
             if (user) {
                 Surface(
-                    color = SurfaceInset, contentColor = Ink, shape = RoundedCornerShape(22.dp, 22.dp, 8.dp, 22.dp),
+                    // 右下的 8dp 小角是 iMessage「气泡尖角指向发送者」的语言；
+                    // AI 消息不用气泡时，用户气泡不需要方向性，对称圆角更一致。
+                    color = SurfaceInset, contentColor = Ink, shape = RoundedCornerShape(20.dp),
                     modifier = Modifier.pointerInput(message.id) {
                         detectTapGestures(onLongPress = { onEditResend() })
                     }
@@ -1337,21 +1339,22 @@ private fun MarkdownTextBlock(raw: String, showCursor: Boolean, error: Boolean) 
                 )
                 2 -> MarkdownListRow(block.marker, block.text, error, selectable = !showCursor, showCursor = hasCursor)
                 3 -> Row(
-                    Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(AccentSoft.copy(alpha = .45f))
-                        .padding(horizontal = 14.dp, vertical = 12.dp).height(IntrinsicSize.Min)
+                    // 引用是引用，不是正文：整片 AccentSoft 底色把它弄得比正文更重，
+                    // 只留左侧竖线 + 稍淡的文字，层级才对。
+                    Modifier.fillMaxWidth().padding(start = 14.dp).height(IntrinsicSize.Min)
                 ) {
                     Box(
-                        Modifier.width(2.dp).fillMaxHeight().clip(CircleShape)
-                            .background(if (error) Danger.copy(alpha = .30f) else Accent.copy(alpha = .28f))
+                        Modifier.width(3.dp).fillMaxHeight().clip(CircleShape)
+                            .background(if (error) Danger.copy(alpha = .5f) else Accent.copy(alpha = .5f))
                     )
-                    Spacer(Modifier.width(12.dp))
+                    Spacer(Modifier.width(13.dp))
                     ReadableText(
                         inlineMarkdown(block.text),
                         bodyStyle,
                         if (error) Danger else Ink.copy(alpha = .78f),
                         selectable = !showCursor,
                         showWritingCursor = hasCursor,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.weight(1f).padding(vertical = 4.dp)
                     )
                 }
                 4 -> block.table?.let {
