@@ -13,8 +13,6 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
@@ -187,8 +185,8 @@ private fun AsterApp(vm: MainViewModel, incomingMediaText: String?, onMediaTextC
                         val forward = targetState.ordinal > initialState.ordinal
                         val enterOffset: (Int) -> Int = { width -> if (forward) width / 10 else -width / 10 }
                         val exitOffset: (Int) -> Int = { width -> if (forward) -width / 14 else width / 14 }
-                        (fadeIn(tween(160)) + slideInHorizontally(tween(200), initialOffsetX = enterOffset) + scaleIn(tween(200), initialScale = 0.992f)) togetherWith
-                            (fadeOut(tween(130)) + slideOutHorizontally(tween(170), targetOffsetX = exitOffset) + scaleOut(tween(170), targetScale = 0.996f))
+                        (fadeIn(tween(160)) + slideInHorizontally(tween(200), initialOffsetX = enterOffset)) togetherWith
+                            (fadeOut(tween(130)) + slideOutHorizontally(tween(170), targetOffsetX = exitOffset))
                     },
                     label = "page-transition"
                 ) { target ->

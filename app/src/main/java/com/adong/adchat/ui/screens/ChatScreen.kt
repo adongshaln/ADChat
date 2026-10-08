@@ -7,7 +7,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
@@ -98,6 +97,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import java.util.Locale
@@ -224,11 +224,10 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
     }
 
     LaunchedEffect(streamScrollSignals, vm.activeConversationId) {
-        streamScrollSignals.collect {
+        streamScrollSignals.conflate().collect {
             if (vm.messages.isNotEmpty() && autoFollow && !userDragging && !composerFocused) {
                 try {
-                    // 流式跟随用瞬时滚动：每个 token 都重启一次 animateScrollToItem，
-                    // 动画永远播不完，列表底部会持续抖动。
+                    withFrameNanos { }
                     listState.scrollToItem(vm.messages.size)
                 } catch (cancelled: CancellationException) {
                     // A gesture or detail reveal cancels this scroll, not the signal collector.

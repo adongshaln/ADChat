@@ -109,7 +109,7 @@ fun DrawScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
         val newArtworkAdded = vm.images.size > observedImageCount
         observedImageCount = vm.images.size
         if (newArtworkAdded) {
-            delay(180)
+            withFrameNanos { }
             listState.scrollToItem(3)
         }
     }
@@ -210,7 +210,7 @@ fun DrawScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                 if (collection.isSeries) {
                     MangaArtworkSeriesCard(
                         collection = collection,
-                        modifier = Modifier.animateItem(),
+                        modifier = Modifier,
                         onPreview = { selectedArtwork = it },
                         onSave = vm::saveImageToGallery,
                         onReuse = { image ->
@@ -223,7 +223,7 @@ fun DrawScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                     val image = collection.images.first()
                     ArtworkCard(
                         image = image,
-                        modifier = Modifier.animateItem(),
+                        modifier = Modifier,
                         onPreview = { selectedArtwork = image },
                         onSave = { vm.saveImageToGallery(image) },
                         onReuse = {
@@ -442,7 +442,7 @@ private fun PromptStudio(
             }
             Spacer(Modifier.height(8.dp))
             Column(
-                Modifier.fillMaxWidth().animateContentSize(tween(190, easing = FastOutSlowInEasing)),
+                Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 if (referenceImages.isEmpty()) {
@@ -860,7 +860,7 @@ private fun MangaArtworkSeriesCard(
     var expanded by rememberSaveable(collection.seriesId) { mutableStateOf(false) }
     val arrowRotation by animateFloatAsState(if (expanded) 180f else 0f, tween(220), label = "series-arrow")
     val first = collection.images.first()
-    Column(modifier.animateContentSize(tween(260, easing = FastOutSlowInEasing))) {
+    Column(modifier) {
         Surface(color = Surface, shape = RoundedCornerShape(24.dp), shadowElevation = 1.dp) {
             Column {
                 Row(
@@ -937,8 +937,8 @@ private fun MangaArtworkSeriesCard(
         }
         AnimatedVisibility(
             visible = expanded,
-            enter = fadeIn(tween(190)) + scaleIn(tween(240), initialScale = .98f),
-            exit = fadeOut(tween(110)) + scaleOut(tween(150), targetScale = .98f)
+            enter = fadeIn(tween(180)),
+            exit = fadeOut(tween(120))
         ) {
             Column {
                 collection.images.forEach { image ->

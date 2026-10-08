@@ -35,7 +35,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -179,13 +181,16 @@ private fun SettingsHome(vm: MainViewModel, onOpenDrawer: () -> Unit, onEdit: (A
             }
             item {
                 SettingsDisclosure("外观", "浅色、深色或跟随系统 · 阅读字重可调", Icons.Rounded.Palette) {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
                         ThemeModeCard("浅色", THEME_MODE_ASTER, AsterPaletteLight,
-                            vm.appConfig.themeMode, vm::setThemeMode, Modifier.weight(1f))
+                            vm.appConfig.themeMode, vm::setThemeMode, Modifier.width(148.dp))
                         ThemeModeCard("深色", THEME_MODE_DARK, AsterPaletteDark,
-                            vm.appConfig.themeMode, vm::setThemeMode, Modifier.weight(1f))
+                            vm.appConfig.themeMode, vm::setThemeMode, Modifier.width(148.dp))
                         ThemeModeCard("跟随系统", THEME_MODE_SYSTEM, null,
-                            vm.appConfig.themeMode, vm::setThemeMode, Modifier.weight(1f))
+                            vm.appConfig.themeMode, vm::setThemeMode, Modifier.width(168.dp))
                     }
                     Spacer(Modifier.height(18.dp))
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -201,10 +206,13 @@ private fun SettingsHome(vm: MainViewModel, onOpenDrawer: () -> Unit, onEdit: (A
                         onValueChangeFinished = vm::commitFontWeight,
                         valueRange = FONT_WEIGHT_MIN.toFloat()..FONT_WEIGHT_MAX.toFloat(),
                         steps = FONT_WEIGHT_MAX - FONT_WEIGHT_MIN - 1,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth().semantics {
+                            stateDescription = "阅读字重 ${vm.appConfig.fontWeight}"
+                        }
                     )
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         Text("细", color = MutedInk, style = MaterialTheme.typography.labelSmall)
+                        Text("标准", color = MutedInk, style = MaterialTheme.typography.labelSmall)
                         Text("粗", color = MutedInk, style = MaterialTheme.typography.labelSmall)
                     }
                     TextButton(
@@ -1108,7 +1116,7 @@ private fun ThemeModeCard(
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val selected = currentMode == mode
+    val isSelected = currentMode == mode
     val haptics = LocalHapticFeedback.current
     Column(modifier) {
         Surface(
@@ -1118,8 +1126,11 @@ private fun ThemeModeCard(
             },
             color = Canvas,
             shape = RoundedCornerShape(16.dp),
-            border = BorderStroke(2.dp, if (selected) Accent else Hairline.copy(alpha = .55f)),
-            modifier = Modifier.fillMaxWidth()
+            border = BorderStroke(2.dp, if (isSelected) Accent else Hairline.copy(alpha = .55f)),
+            modifier = Modifier.fillMaxWidth().semantics {
+                selected = isSelected
+                stateDescription = if (isSelected) "已选择" else "未选择"
+            }
         ) {
             if (palette == null) {
                 Row(Modifier.padding(8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -1133,7 +1144,7 @@ private fun ThemeModeCard(
         Text(
             label,
             style = MaterialTheme.typography.labelLarge,
-            color = if (selected) Accent else MutedInk,
+            color = if (isSelected) Accent else MutedInk,
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(top = 7.dp)
         )

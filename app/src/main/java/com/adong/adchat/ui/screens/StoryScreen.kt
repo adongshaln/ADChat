@@ -62,6 +62,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
@@ -384,7 +385,7 @@ private fun TavernPresetSheet(
             modifier = Modifier.padding(top = 2.dp)
         )
         if ((active?.helperScriptCount ?: 0) > 0) {
-            Surface(color = Color(0xFFFFF1D8), shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
+            Surface(color = AmberSoft, shape = RoundedCornerShape(16.dp), modifier = Modifier.fillMaxWidth()) {
                 Row(Modifier.padding(13.dp), verticalAlignment = Alignment.Top) {
                     Icon(Icons.Rounded.Security, null, Modifier.size(19.dp), tint = MutedInk)
                     Spacer(Modifier.width(9.dp))
@@ -956,10 +957,11 @@ private fun StoryWorkspaceContent(
         streamScrollSignals.tryEmit(Unit)
     }
     LaunchedEffect(streamScrollSignals, scrollSessionKey, listState) {
-        streamScrollSignals.collect {
+        streamScrollSignals.conflate().collect {
             if (autoFollow && !latestDragging && !latestComposerFocused && latestHasScrollContent) {
                 try {
-                    listState.animateScrollToItem(latestBottomItemIndex)
+                    withFrameNanos { }
+                    listState.scrollToItem(latestBottomItemIndex)
                 } catch (cancelled: CancellationException) {
                     // A gesture or detail reveal may cancel one animation. Keep the
                     // collector alive, but propagate cancellation when this session leaves.
@@ -974,7 +976,7 @@ private fun StoryWorkspaceContent(
         listState
     ) {
         if (!composerFocused) return@LaunchedEffect
-        autoFollow = true
+        autoFollow = listState.isCloseToBottom()
 
         snapshotFlow {
             imeInsets.getBottom(composerDensity) to imeAnimationTarget.getBottom(composerDensity)
@@ -1322,7 +1324,7 @@ internal fun StoryMessageItem(
             horizontalAlignment = if (user) Alignment.End else Alignment.Start
         ) {
             if (user) {
-                Surface(color = SurfaceInset, contentColor = Ink, shape = RoundedCornerShape(22.dp, 22.dp, 8.dp, 22.dp)) {
+                Surface(color = SurfaceInset, contentColor = Ink, shape = RoundedCornerShape(20.dp)) {
                     Column(Modifier.padding(7.dp)) {
                         if (row.revision.attachments.isNotEmpty()) ConversationImages(row.revision.attachments)
                         if (row.revision.content.isNotBlank()) {
@@ -1359,7 +1361,7 @@ internal fun StoryMessageItem(
                 }
                 if (row.revision.state in setOf(StoryRevisionState.Interrupted, StoryRevisionState.Stopped)) {
                     Surface(
-                        color = if (row.revision.state == StoryRevisionState.Stopped) Color(0xFFF0EDE8) else Color(0xFFFFF1D8),
+                        color = if (row.revision.state == StoryRevisionState.Stopped) SurfaceInset else AmberSoft,
                         shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.padding(top = 8.dp)
                     ) {

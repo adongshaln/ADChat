@@ -693,7 +693,7 @@ private fun platformSoftColor(platform: MediaPlatform?): Color = when (platform)
     MediaPlatform.Twitter -> Color(0xFFE8EEF3)
     MediaPlatform.Bilibili -> Color(0xFFF9E8ED)
     MediaPlatform.Direct -> AccentSoft
-    null -> Color(0xFFF0EDE8)
+    null -> SurfaceInset
 }
 
 private const val BILIBILI_IMAGE_USER_AGENT = "Mozilla/5.0 (Linux; Android 16) AppleWebKit/537.36 Chrome/125.0 Mobile Safari/537.36"
