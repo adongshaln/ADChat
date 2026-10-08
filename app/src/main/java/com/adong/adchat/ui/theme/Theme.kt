@@ -106,7 +106,7 @@ val AsterPaletteDark = AsterPalette(
 val LocalAsterPalette = staticCompositionLocalOf { AsterPaletteLight }
 val LocalThemeMode = staticCompositionLocalOf { THEME_MODE_ASTER }
 val LocalThemeDark = staticCompositionLocalOf { false }
-private val LocalAsterFontFamily = staticCompositionLocalOf { FontFamily.Default }
+private val LocalAsterFontFamily = staticCompositionLocalOf<FontFamily> { FontFamily.Default }
 
 internal val AsterFontFamily: FontFamily
     @Composable get() = LocalAsterFontFamily.current
