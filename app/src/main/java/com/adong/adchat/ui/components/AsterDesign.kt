@@ -21,7 +21,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -44,7 +43,7 @@ fun AsterArtwork(modifier: Modifier = Modifier) {
 
 @Composable
 fun AsterWordmark(size: Int = 30, color: Color = Ink) {
-    Text("Aster", fontFamily = FontFamily.Serif, fontSize = size.sp,
+    Text("Aster", fontFamily = AsterFontFamily, fontSize = size.sp,
         letterSpacing = (-1).sp, color = color, fontWeight = FontWeight.Normal)
 }
 

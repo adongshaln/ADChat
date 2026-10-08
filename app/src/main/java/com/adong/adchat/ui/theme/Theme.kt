@@ -18,9 +18,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontSynthesis
+import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
@@ -156,28 +157,43 @@ private fun AsterPalette.toColorScheme() = lightColorScheme(
     errorContainer = dangerSoft
 )
 
-// Claude 的阅读感来自衬线标题 + 衬线正文。Noto Serif 偏中性，换霞鹜文楷
-// （OFL 开源、专为中文阅读设计、和 Aster 的暖色调性一致）。打包的是 GB2312
-// 常用字 + 拉丁标点的子集，约 3.3MB——完整版 25MB 的十分之一。
-private val SerifFamily = FontFamily(Font(R.font.wenkai))
+// Noto Serif SC 提供简体中文、拉丁文及常见扩展脚本，并通过 wght 轴覆盖 200–900。
+// 同一资源声明多个轴值，让 Compose 使用真实的可变字重，而不是合成粗体。
+@OptIn(ExperimentalTextApi::class)
+private fun notoSerifFont(weight: Int): Font = Font(
+    R.font.noto_serif_sc_variable,
+    weight = FontWeight(weight),
+    variationSettings = FontVariation.Settings(FontVariation.weight(weight))
+)
+
+@OptIn(ExperimentalTextApi::class)
+internal val AsterFontFamily = FontFamily(
+    notoSerifFont(200),
+    notoSerifFont(300),
+    notoSerifFont(400),
+    notoSerifFont(500),
+    notoSerifFont(600),
+    notoSerifFont(700),
+    notoSerifFont(800),
+    notoSerifFont(900)
+)
 
 private val typography = Typography(
-    displaySmall = TextStyle(fontFamily = SerifFamily, fontWeight = FontWeight.Medium, fontSize = 32.sp, lineHeight = 43.sp, letterSpacing = (-0.8).sp),
-    headlineMedium = TextStyle(fontFamily = SerifFamily, fontWeight = FontWeight.Medium, fontSize = 28.sp, lineHeight = 37.sp, letterSpacing = (-0.6).sp),
-    titleLarge = TextStyle(fontFamily = SerifFamily, fontWeight = FontWeight.SemiBold, fontSize = 21.sp, lineHeight = 29.sp),
-    titleMedium = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp),
-    titleSmall = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 21.sp),
+    displaySmall = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.Medium, fontSize = 32.sp, lineHeight = 43.sp, letterSpacing = (-0.8).sp),
+    headlineMedium = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.Medium, fontSize = 28.sp, lineHeight = 37.sp, letterSpacing = (-0.6).sp),
+    titleLarge = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 21.sp, lineHeight = 29.sp),
+    titleMedium = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 16.sp, lineHeight = 22.sp),
+    titleSmall = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.Medium, fontSize = 14.sp, lineHeight = 21.sp),
     bodyLarge = TextStyle(
-        fontFamily = SerifFamily,
+        fontFamily = AsterFontFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSynthesis = FontSynthesis.Weight,
         fontSize = 16.sp,
         lineHeight = 27.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
         lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
     ),
     bodyMedium = TextStyle(
-        fontFamily = FontFamily.SansSerif,
+        fontFamily = AsterFontFamily,
         fontSize = 14.sp,
         lineHeight = 22.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
@@ -186,15 +202,15 @@ private val typography = Typography(
     // 全站约 20 处说明性小字都在用 bodySmall，不定义就会悄悄回落到 M3 默认值
     // （12sp / 16sp 行高），两行说明放不下。这里把它显式定下来。
     bodySmall = TextStyle(
-        fontFamily = FontFamily.SansSerif,
+        fontFamily = AsterFontFamily,
         fontSize = 12.sp,
         lineHeight = 18.sp,
         platformStyle = PlatformTextStyle(includeFontPadding = false),
         lineHeightStyle = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
     ),
-    labelLarge = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
-    labelMedium = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 18.sp),
-    labelSmall = TextStyle(fontFamily = FontFamily.SansSerif, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp)
+    labelLarge = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 14.sp),
+    labelMedium = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.Medium, fontSize = 12.sp, lineHeight = 18.sp),
+    labelSmall = TextStyle(fontFamily = AsterFontFamily, fontWeight = FontWeight.Medium, fontSize = 11.sp, lineHeight = 16.sp)
 )
 
 private val shapes = Shapes(
