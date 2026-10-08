@@ -542,13 +542,9 @@ class ApiRepository internal constructor(
         val finalUsage = usage.copy(
             timeToFirstTokenMs = firstDeltaAt?.let { TimeUnit.NANOSECONDS.toMillis(it - started) },
             durationMs = duration,
-            cacheRequested = profile.promptCacheEnabled && model.isGpt56Family(),
+            cacheRequested = PromptCache.requested(profile.promptCacheEnabled, model),
             cacheKey = cacheKey.take(64),
-            cacheStrategy = when {
-                !profile.promptCacheEnabled || !model.isGpt56Family() -> "off"
-                explicitCache -> "explicit-chat"
-                else -> "automatic"
-            }
+            cacheStrategy = PromptCache.strategy(profile.promptCacheEnabled, model, responsesApi = false)
         )
         val resultText = full.toString().ifBlank {
             generatedFiles.takeIf { it.isNotEmpty() }?.joinToString("\n") { "已创建文件：${it.name}" }
@@ -800,9 +796,9 @@ class ApiRepository internal constructor(
         val finalUsage = usage.copy(
             timeToFirstTokenMs = firstDeltaAt?.let { TimeUnit.NANOSECONDS.toMillis(it - started) },
             durationMs = elapsedMs(started),
-            cacheRequested = profile.promptCacheEnabled && model.isGpt56Family(),
+            cacheRequested = PromptCache.requested(profile.promptCacheEnabled, model),
             cacheKey = cacheKey.take(64),
-            cacheStrategy = if (profile.promptCacheEnabled && model.isGpt56Family()) "automatic" else "off"
+            cacheStrategy = PromptCache.strategy(profile.promptCacheEnabled, model, responsesApi = true)
         )
         val resultText = full.toString().ifBlank {
             generatedFiles.takeIf { it.isNotEmpty() }?.joinToString("\n") { "已创建文件：${it.name}" }
@@ -927,12 +923,10 @@ $query"""
         responsesApi: Boolean,
         explicitCache: Boolean
     ) {
-        if (!model.isGpt56Family()) return
-        if (profile.promptCacheEnabled && cacheKey.isNotBlank()) {
-            body.put("prompt_cache_key", cacheKey.take(64))
-            if (explicitCache && !responsesApi) {
-                body.put("prompt_cache_options", JSONObject().put("mode", "explicit").put("ttl", "30m"))
-            }
+        if (!profile.promptCacheEnabled) return
+        PromptCache.apply(body, enabled = true, model = model, cacheKey = cacheKey, responsesApi = responsesApi)
+        if (explicitCache && !responsesApi && model.isGpt56Family()) {
+            body.put("prompt_cache_options", JSONObject().put("mode", "explicit").put("ttl", "30m"))
         }
     }
 
