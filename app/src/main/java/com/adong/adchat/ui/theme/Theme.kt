@@ -18,10 +18,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.PlatformTextStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
+import com.adong.adchat.R
 import com.adong.adchat.data.THEME_MODE_ASTER
 import com.adong.adchat.data.THEME_MODE_DARK
 import com.adong.adchat.data.THEME_MODE_SYSTEM
@@ -153,10 +155,10 @@ private fun AsterPalette.toColorScheme() = lightColorScheme(
     errorContainer = dangerSoft
 )
 
-// Claude 的阅读感来自衬线标题 + 衬线正文：FontFamily.Serif 在 Android 上
-// 解析到 Noto Serif（中英文都衬线），零打包体积。只把「阅读字」和「版面字」
-// 换到衬线，功能性 label/按钮仍用无衬线，克制而不是全套换皮。
-private val SerifFamily = FontFamily.Serif
+// Claude 的阅读感来自衬线标题 + 衬线正文。Noto Serif 偏中性，换霞鹜文楷
+// （OFL 开源、专为中文阅读设计、和 Aster 的暖色调性一致）。打包的是 GB2312
+// 常用字 + 拉丁标点的子集，约 3.3MB——完整版 25MB 的十分之一。
+private val SerifFamily = FontFamily(Font(R.font.wenkai))
 
 private val typography = Typography(
     displaySmall = TextStyle(fontFamily = SerifFamily, fontWeight = FontWeight.Medium, fontSize = 32.sp, lineHeight = 43.sp, letterSpacing = (-0.8).sp),
