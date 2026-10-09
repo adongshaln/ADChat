@@ -4,13 +4,13 @@ internal const val ASK_USER_TOOL = "ask_user"
 internal const val ASK_USER_SOURCE = "aster:skills/ask-user"
 internal const val ASK_USER_CUSTOM_OPTION = "描述您的其他想法"
 
-internal const val ASK_USER_INSTRUCTION = """
+internal val ASK_USER_INSTRUCTION = """
 [ASTER_ASK_USER]
 当用户的需求缺少会显著改变结果、且不能合理假定的条件时，调用 ask_user 提一个问题。条件已经足够就直接完成，不要为了确认而打断。
 一次只问最关键的一个问题。options 给 2 到 3 个可以直接执行的不同选项，更稳妥的放在第一位。不要自己加入“描述您的其他想法”，应用会固定把它放在最后并允许用户输入。不要在正文里重复这个问题，等工具返回后再继续。
 """.trim()
 
-private const val ASK_USER_MARKDOWN = """
+private val ASK_USER_MARKDOWN = """
 ---
 name: 模型主动提问
 description: 需求里还有会改变结果、又不能合理假定的条件时，先用 ask_user 问一个带选项的问题。条件足够就直接做。
@@ -26,7 +26,7 @@ description: 需求里还有会改变结果、又不能合理假定的条件时�
 - 需求已经明确，或缺口可以用一个无害的默认处理时，不要调用这个工具。
 """.trim()
 
-internal data class AskUserPrompt(val question: String, val options: List<String>)
+data class AskUserPrompt(val question: String, val options: List<String>)
 
 internal fun normalizeAskUserPrompt(question: String, options: List<String>): AskUserPrompt {
     val cleaned = options.map { it.trim() }
