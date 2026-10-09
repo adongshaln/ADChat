@@ -83,11 +83,20 @@ import com.adong.adchat.ui.components.AdChoiceOption
 import com.adong.adchat.ui.components.AdSelectionSheet
 import com.adong.adchat.ui.components.QuickModelSwitcher
 import com.adong.adchat.ui.components.RouteKind
+import com.adong.adchat.data.ASK_USER_CUSTOM_OPTION
+import com.adong.adchat.data.AskUserPrompt
 import com.adong.adchat.ui.markdown.MarkdownTable
 import com.adong.adchat.ui.markdown.MarkdownTableAlignment
 import com.adong.adchat.ui.markdown.containsMarkdownTable
 import com.adong.adchat.ui.markdown.markdownTableToTsv
+import com.adong.adchat.ui.markdown.emphasisSpanAllowed
+import com.adong.adchat.ui.markdown.isChapterHeading
+import com.adong.adchat.ui.markdown.isSceneBreak
+import com.adong.adchat.ui.markdown.isStarredProseLine
+import com.adong.adchat.ui.markdown.novelBodyDisplay
 import com.adong.adchat.ui.markdown.parseMarkdownTableAt
+import com.adong.adchat.ui.markdown.readingSpans
+import com.adong.adchat.ui.markdown.ReadingSpan
 import com.adong.adchat.ui.theme.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -352,7 +361,17 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                     .onSizeChanged { composerHeightPx = it.height }
                     .navigationBarsPadding()
             ) {
-                ChatComposer(
+                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
+                    vm.pendingQuestion?.let { prompt ->
+                        AskUserCard(
+                            prompt = prompt,
+                            draft = vm.questionDraft,
+                            onDraft = vm::updateQuestionDraft,
+                            onChoose = vm::chooseQuestionOption,
+                            onSubmitDraft = vm::submitQuestionDraft
+                        )
+                    }
+                    ChatComposer(
                     skillScope = "adchat-${vm.activeConversationId ?: "new"}",
                     focusRequester = composerFocusRequester,
                     value = vm.chatInput,
@@ -386,8 +405,9 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                     onSend = { autoFollow = true; vm.sendMessage() },
                     onStop = vm::stopGeneration,
                     onFocusChange = { composerFocused = it },
-                    modifier = Modifier.align(Alignment.BottomCenter)
+                    modifier = Modifier.fillMaxWidth()
                 )
+                }
             }
         }
     }
@@ -1225,12 +1245,7 @@ private fun normalizeQuoteHeavyMarkdown(text: String): String {
     }
 }
 
-private fun isSceneBreakLine(line: String): Boolean {
-    val value = line.filterNot(Char::isWhitespace)
-    if (value in setOf("***", "——", "……", "...", "◇", "◆")) return true
-    if (value.length >= 3 && value.all { it == '-' }) return true
-    return value.length >= 3 && value.all { it == '*' }
-}
+private fun isSceneBreakLine(line: String): Boolean = isSceneBreak(line)
 
 private fun parseMarkdownBlocks(text: String): List<MarkdownBlock> {
     val result = mutableListOf<MarkdownBlock>()
@@ -1268,13 +1283,18 @@ private fun parseMarkdownBlocks(text: String): List<MarkdownBlock> {
                 flushQuote()
                 result += MarkdownBlock(5, "")
             }
+            isChapterHeading(line.trim()) -> {
+                flushParagraph()
+                flushQuote()
+                result += MarkdownBlock(1, line.trim(), level = 2)
+            }
             line.matches(Regex("""^#{1,6}\s+.*""")) -> {
                 flushParagraph()
                 flushQuote()
                 val level = line.takeWhile { it == '#' }.length
                 result += MarkdownBlock(1, line.drop(level).trimStart(), level = level)
             }
-            line.startsWith("- ") || line.startsWith("* ") -> {
+            line.startsWith("- ") || (line.startsWith("* ") && !isStarredProseLine(line)) -> {
                 flushParagraph()
                 flushQuote()
                 result += MarkdownBlock(2, line.drop(2).trim(), marker = "•")
@@ -1368,7 +1388,7 @@ private fun MarkdownTextBlock(raw: String, showCursor: Boolean, error: Boolean) 
                     if (hasCursor) AsterWritingCursorLine(error)
                 }
                 else -> ReadableText(
-                    inlineMarkdown(block.text),
+                    inlineMarkdown(novelBodyDisplay(block.text)),
                     bodyStyle,
                     if (error) Danger else Ink,
                     selectable = !showCursor,
@@ -1685,7 +1705,18 @@ private fun AsterWritingCursorLine(error: Boolean) {
 
 @Composable
 private fun inlineMarkdown(text: String): AnnotatedString {
-    val base = basicInlineMarkdown(text)
+    val base = buildAnnotatedString {
+        readingSpans(text).forEach { span ->
+            when (span) {
+                is ReadingSpan.Name -> {
+                    pushStyle(SpanStyle(color = NameInk, fontWeight = FontWeight.Medium))
+                    append(span.value)
+                    pop()
+                }
+                is ReadingSpan.Text -> append(basicInlineMarkdown(span.value))
+            }
+        }
+    }
     val source = base.text
     return buildAnnotatedString {
         append(base)
@@ -1713,7 +1744,9 @@ private fun basicInlineMarkdown(text: String): AnnotatedString = buildAnnotatedS
         val token = tokens.firstOrNull { text.startsWith(it, index) }
         if (token != null) {
             val end = text.indexOf(token, index + token.length)
-            if (end > index + token.length) {
+            val inner = if (end > index + token.length) text.substring(index + token.length, end) else null
+            val allowed = inner != null && (token !in setOf("*", "_") || emphasisSpanAllowed(inner))
+            if (inner != null && allowed) {
                 val style = when (token) {
                     "**", "__" -> SpanStyle(fontWeight = FontWeight.Bold)
                     "~~" -> SpanStyle(textDecoration = TextDecoration.LineThrough)
@@ -1731,6 +1764,50 @@ private fun basicInlineMarkdown(text: String): AnnotatedString = buildAnnotatedS
             val next = tokens.map { text.indexOf(it, index) }.filter { it >= 0 }.minOrNull() ?: text.length
             val target = next.coerceAtLeast(index + 1)
             append(text.substring(index, target)); index = target
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun AskUserCard(
+    prompt: AskUserPrompt,
+    draft: String,
+    onDraft: (String) -> Unit,
+    onChoose: (String) -> Unit,
+    onSubmitDraft: () -> Unit
+) {
+    var writing by remember(prompt.question, prompt.options) { mutableStateOf(false) }
+    Surface(
+        color = Surface,
+        contentColor = Ink,
+        shape = RoundedCornerShape(18.dp),
+        border = BorderStroke(1.dp, Hairline),
+        shadowElevation = 2.dp,
+        modifier = Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, bottom = 8.dp)
+    ) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(prompt.question, style = MaterialTheme.typography.titleSmall)
+            prompt.options.forEach { option ->
+                val custom = option == ASK_USER_CUSTOM_OPTION
+                if (custom && writing) {
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = onDraft,
+                        placeholder = { Text(option) },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    TextButton(onClick = onSubmitDraft, enabled = draft.isNotBlank(), modifier = Modifier.align(Alignment.End)) {
+                        Text("发送")
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick = { if (custom) writing = true else onChoose(option) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(option) }
+                }
+            }
         }
     }
 }

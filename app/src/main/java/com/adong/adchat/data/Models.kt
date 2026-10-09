@@ -494,7 +494,8 @@ data class Conversation(
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis(),
     val profileId: String = "",
-    val model: String = ""
+    val model: String = "",
+    val titleSummarized: Boolean = false
 )
 
 data class ReferenceImageInput(

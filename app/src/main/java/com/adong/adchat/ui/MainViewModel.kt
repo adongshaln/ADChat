@@ -15,6 +15,8 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.adong.adchat.data.*
+import com.adong.adchat.ui.markdown.NARRATIVE_NAME_MARK_INSTRUCTION
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineStart
@@ -155,6 +157,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         private set
     var isChatLoading by mutableStateOf(false)
         private set
+    var pendingQuestion by mutableStateOf<AskUserPrompt?>(null)
+        private set
+    var questionDraft by mutableStateOf("")
+        private set
+    private var questionAwaiting: CompletableDeferred<String>? = null
     private var chatJob: Job? = null
     private var chatStopRequested = false
     private val imageTaskStates = mutableStateMapOf<String, ImageTaskUiState>()
@@ -788,12 +795,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             var lastRecoveryAt = 0L
             var lastReasoningPushAt = 0L
             var automaticRecoveryCount = 0
+            var summarizeTitle = false
             try {
                 val requestHistory = withContext(Dispatchers.IO) { prepareChatHistory(history) }
                 val result = repository.streamChat(
                     profile = profile,
                     model = model,
-                    systemPrompt = appConfig.systemPrompt,
+                    systemPrompt = listOf(appConfig.systemPrompt, NARRATIVE_NAME_MARK_INSTRUCTION)
+                        .filter(String::isNotBlank).joinToString("\n\n"),
                     history = requestHistory,
                     cacheKey = "adchat-${activeConversationId ?: profile.id}",
                     searchBackend = searchBackendConfig(),
@@ -819,6 +828,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                             }
                         }
                     },
+                    onAskUser = { prompt -> awaitQuestion(prompt) },
                     onReasoning = { chunk ->
                         reasoned.append(chunk)
                         val now = SystemClock.elapsedRealtime()
@@ -862,7 +872,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                                     createdAt = recoveryCreatedAt,
                                     updatedAt = System.currentTimeMillis(),
                                     profileId = profile.id,
-                                    model = model
+                                    model = model,
+                                    titleSummarized = recoveryBase?.titleSummarized ?: false
                                 )
                             )
                         }
@@ -886,6 +897,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         toolActivities = result.toolActivities
                     )
                 }
+                summarizeTitle = true
             } catch (error: Throwable) {
                 val partial = streamed.toString().trimEnd()
                 val reasonedText = reasoned.toString().trimEnd()
@@ -979,6 +991,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 chatStopRequested = false
                 chatJob = null
                 persistCurrentConversation(clearRecoveryMessageId = assistantId)
+                if (summarizeTitle) scheduleTitleSummary()
             }
         }
     }
@@ -1003,7 +1016,41 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun stopGeneration() {
         if (!isChatLoading) return
         chatStopRequested = true
+        questionAwaiting?.cancel()
         chatJob?.cancel(CancellationException("User stopped generation"))
+    }
+
+    fun updateQuestionDraft(value: String) { questionDraft = value }
+
+    fun chooseQuestionOption(option: String) {
+        if (option == ASK_USER_CUSTOM_OPTION) return
+        questionAwaiting?.complete(option)
+    }
+
+    fun submitQuestionDraft() {
+        val text = questionDraft.trim()
+        if (text.isBlank()) return
+        questionAwaiting?.complete(text)
+    }
+
+    private suspend fun awaitQuestion(prompt: AskUserPrompt): String {
+        val deferred = CompletableDeferred<String>()
+        withContext(Dispatchers.Main.immediate) {
+            questionDraft = ""
+            pendingQuestion = prompt
+            questionAwaiting = deferred
+        }
+        return try {
+            deferred.await()
+        } finally {
+            withContext(Dispatchers.Main.immediate) {
+                if (questionAwaiting === deferred) {
+                    pendingQuestion = null
+                    questionAwaiting = null
+                    questionDraft = ""
+                }
+            }
+        }
     }
 
     fun regenerateMessage(messageId: Long) {
@@ -1169,7 +1216,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun renameConversation(id: String, title: String) {
         val index = conversations.indexOfFirst { it.id == id }
         if (index < 0 || title.isBlank()) return
-        conversations[index] = conversations[index].copy(title = title.trim(), updatedAt = System.currentTimeMillis())
+        conversations[index] = conversations[index].copy(
+            title = title.trim(),
+            titleSummarized = true,
+            updatedAt = System.currentTimeMillis()
+        )
         sortAndSaveConversations()
     }
 
@@ -1870,21 +1921,58 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             scheduleSessionSave(immediate = true)
         }
         val index = conversations.indexOfFirst { it.id == id }
-        val title = stableMessages.firstOrNull { it.role == "user" }?.content
-            ?.replace(Regex("\\s+"), " ")?.trim()?.take(24)?.ifBlank { null } ?: "\u65b0\u5bf9\u8bdd"
-        val createdAt = conversations.getOrNull(index)?.createdAt ?: now
+        val existing = conversations.getOrNull(index)
+        val title = automaticConversationTitle(stableMessages)
+        val createdAt = existing?.createdAt ?: now
         val selectedProfile = chatProfile
         val conversation = Conversation(
             id = id,
-            title = conversations.getOrNull(index)?.title ?: title,
+            title = existing?.title ?: title,
             messages = stableMessages,
             createdAt = createdAt,
             updatedAt = now,
             profileId = selectedProfile.id,
-            model = selectedProfile.chatModel
+            model = selectedProfile.chatModel,
+            titleSummarized = existing?.titleSummarized ?: false
         )
         if (index >= 0) conversations[index] = conversation else conversations.add(conversation)
         sortAndSaveConversations(clearRecoveryMessageId)
+    }
+
+    private fun scheduleTitleSummary() {
+        val id = activeConversationId ?: return
+        val snapshot = conversations.firstOrNull { it.id == id } ?: return
+        if (snapshot.titleSummarized || userRounds(snapshot.messages) < 3) return
+        if (!isAutomaticTitle(snapshot.title, snapshot.messages)) {
+            val index = conversations.indexOfFirst { it.id == id }
+            if (index >= 0) {
+                conversations[index] = conversations[index].copy(titleSummarized = true)
+                sortAndSaveConversations()
+            }
+            return
+        }
+        val profile = chatProfile
+        val model = profile.chatModel
+        if (model.isBlank()) return
+        val transcript = snapshot.messages.filter {
+            !it.isError && !it.isStreaming && !it.isContinuation && (it.role == "user" || it.role == "assistant")
+        }.takeLast(6).joinToString("\n") { message ->
+            val who = if (message.role == "user") "用户" else "助手"
+            "$who：${message.content.replace(Regex("\\s+"), " ").trim().take(180)}"
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val title = runCatching { repository.summarizeConversationTitle(profile, model, transcript) }.getOrNull()
+            withContext(Dispatchers.Main) {
+                val index = conversations.indexOfFirst { it.id == id }
+                if (index < 0 || conversations[index].titleSummarized) return@withContext
+                val current = conversations[index]
+                conversations[index] = current.copy(
+                    title = title?.takeIf(String::isNotBlank) ?: current.title,
+                    titleSummarized = true
+                )
+                sortAndSaveConversations()
+            }
+        }
     }
 
     private fun bindCurrentConversationRoute(profile: ApiProfile, model: String) {
