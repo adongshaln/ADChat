@@ -1667,7 +1667,7 @@ private fun ReadableText(
                     placeholderVerticalAlign = PlaceholderVerticalAlign.TextCenter
                 )
             ) {
-                AsterMark(Modifier.fillMaxSize(), tint = AsterMarkOrange.copy(alpha = .72f))
+                AsterMark(Modifier.fillMaxSize(), tint = Accent.copy(alpha = .72f))
             }
         )
     } else {

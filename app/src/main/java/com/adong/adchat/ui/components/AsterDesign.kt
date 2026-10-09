@@ -29,19 +29,16 @@ import androidx.compose.ui.unit.sp
 import com.adong.adchat.R
 import com.adong.adchat.ui.theme.*
 
-/** Orange disc used for the launcher and the in-app mark. */
-val AsterMarkOrange = Color(0xFFE25C33)
-
-/** Reuses the launcher mark. Tint stays overridable for error states. */
+/** Reuses the actual launcher artwork, including its original safe space. */
 @Composable
-fun AsterMark(modifier: Modifier = Modifier, tint: Color = AsterMarkOrange) {
-    Icon(painterResource(R.drawable.ic_mark_mono), null, modifier, tint = tint)
+fun AsterMark(modifier: Modifier = Modifier, tint: Color = Accent) {
+    Icon(painterResource(R.drawable.ic_launcher_monochrome), null, modifier, tint = tint)
 }
 
-/** The mark without the launcher tile. */
+/** Transparent Aster star used for branded motion without the launcher tile. */
 @Composable
 fun AsterArtwork(modifier: Modifier = Modifier) {
-    AsterMark(modifier = modifier)
+    AsterMark(modifier = modifier, tint = Accent)
 }
 
 @Composable

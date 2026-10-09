@@ -99,7 +99,7 @@ fun ConversationAuthor(error: Boolean = false) {
     // 长对话里每屏几条横线会让消息边界更乱，而不是更清楚。
     Row(Modifier.padding(bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
         Surface(color = AccentSoft.copy(alpha = if (error) .35f else .8f), shape = CircleShape) {
-            AsterMark(Modifier.padding(4.dp).size(16.dp), tint = if (error) Danger else AsterMarkOrange)
+            AsterMark(Modifier.padding(4.dp).size(16.dp), tint = if (error) Danger else Accent)
         }
         Text("Aster", Modifier.padding(start = 8.dp),
             style = MaterialTheme.typography.titleSmall, color = if (error) Danger else Ink.copy(alpha = .82f))
