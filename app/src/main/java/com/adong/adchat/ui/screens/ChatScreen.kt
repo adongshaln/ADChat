@@ -66,6 +66,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.adong.adchat.data.ChatImageAttachment
+import com.adong.adchat.data.EffortStop
 import com.adong.adchat.data.ReasoningPolicy
 import com.adong.adchat.data.usesResponses
 import com.adong.adchat.data.ChatFileAttachment
@@ -1846,8 +1847,8 @@ private fun ChatComposer(
     var showEffortSheet by remember { mutableStateOf(false) }
     var showToolsSheet by remember { mutableStateOf(false) }
     var showContextSheet by remember { mutableStateOf(false) }
-    val effortChoices = remember(model) { ReasoningPolicy.choices(model) }
-    val currentEffort = remember(model, reasoningEffort) { ReasoningPolicy.choiceOf(model, reasoningEffort) }
+    val effortSupported = remember(model) { ReasoningPolicy.isSupported(model) }
+    val effortStop = remember(model, reasoningEffort) { ReasoningPolicy.snapStop(model, reasoningEffort) }
     ConversationComposer(
         value = value, attachments = attachments, loading = loading, attachmentLoading = attachmentLoading,
         onValueChange = onValueChange, onOptionsClick = { showToolsSheet = true }, onRemoveImage = onRemoveImage,
@@ -1864,11 +1865,12 @@ private fun ChatComposer(
                 }
             )
         },
-        reasoningAction = if (effortChoices.isEmpty()) null else {
+        reasoningAction = if (!effortSupported) null else {
             {
                 ComposerReasoningButton(
-                    label = compactEffortLabel(currentEffort?.label ?: "默认"),
-                    detailed = currentEffort?.id != ReasoningPolicy.DEFAULT,
+                    label = effortStop.label,
+                    detailed = reasoningEffort != ReasoningPolicy.DEFAULT,
+                    glowing = effortStop == EffortStop.Max && reasoningEffort.trim().lowercase() in setOf("max", "xhigh"),
                     onClick = {
                         focus.clearFocus()
                         showEffortSheet = true
@@ -1893,7 +1895,7 @@ private fun ChatComposer(
             onReasoningClick = { showToolsSheet = false; showEffortSheet = true },
             onWebSearchToggle = onWebSearchToggle,
             onFileCreationToggle = onFileCreationToggle,
-            reasoningSupported = effortChoices.isNotEmpty(),
+            reasoningSupported = effortSupported,
             onDismiss = { showToolsSheet = false }
         )
     }
@@ -1925,42 +1927,12 @@ private fun ChatComposer(
             onDismiss = { showContextSheet = false }
         )
     }
-    if (showEffortSheet) {
-        val responsesApi = apiMode == "responses"
-        val contract = ReasoningPolicy.contract(model, responsesApi)
-        AdSelectionSheet(
-            title = "思考强度",
-            subtitle = if (effortChoices.isEmpty()) "当前模型不支持调节思考强度" else "$model · ${contract.field}",
-            options = effortChoices.map { choice ->
-                AdChoiceOption(
-                    id = choice.id,
-                    title = choice.label,
-                    subtitle = choice.hint,
-                    icon = when (choice.id) {
-                        "off", "none" -> Icons.Rounded.Bolt
-                        "on" -> Icons.Rounded.Psychology
-                        "low" -> Icons.Rounded.Bolt
-                        "medium" -> Icons.Rounded.Balance
-                        "high" -> Icons.Rounded.Psychology
-                        "xhigh" -> Icons.Rounded.AccountTree
-                        "max" -> Icons.Rounded.AutoAwesome
-                        else -> Icons.Rounded.AutoAwesome
-                    },
-                    badge = when (choice.id) {
-                        "low" -> "更快"
-                        "medium" -> "推荐"
-                        "high" -> "复杂任务"
-                        "xhigh" -> "深度推理"
-                        "max" -> "最大预算"
-                        else -> null
-                    }
-                )
-            },
-            selectedId = currentEffort?.id,
-            onSelect = { onReasoningEffortChange(it.id); showEffortSheet = false },
-            onDismiss = { showEffortSheet = false },
-            searchEnabled = false,
-            headerIcon = Icons.Rounded.Psychology
+    if (showEffortSheet && effortSupported) {
+        EffortSliderDialog(
+            model = model,
+            effort = reasoningEffort,
+            onSelect = onReasoningEffortChange,
+            onDismiss = { showEffortSheet = false }
         )
     }
 }
@@ -2042,16 +2014,3 @@ private fun ComposerToolToggle(
 }
 
 /** 输入框上的短标签，两个汉字放得下。 */
-private fun compactEffortLabel(label: String): String = when (label) {
-    "模型默认" -> "默认"
-    "极简" -> "极简"
-    "快速" -> "快速"
-    "均衡" -> "均衡"
-    "深入" -> "深入"
-    "深度" -> "深度"
-    "极致" -> "极致"
-    "关闭" -> "关闭"
-    "开启" -> "开启"
-    else -> label.take(2)
-}
-

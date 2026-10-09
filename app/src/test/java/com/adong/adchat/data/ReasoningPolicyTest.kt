@@ -132,4 +132,25 @@ class ReasoningPolicyTest {
         ReasoningPolicy.write(claude, "claude-sonnet-4.5", "maximal", responsesApi = false, outputTokenLimit = 8192)
         assertTrue(claude.length() == 0)
     }
+
+    @Test fun threeStopsTranslateToWhatEachFamilyAccepts() {
+        assertEquals("max", ReasoningPolicy.wireEffort("gpt-5.6-sol", EffortStop.Max))
+        assertEquals("high", ReasoningPolicy.wireEffort("claude-sonnet-4.5", EffortStop.Max))
+        assertEquals("xhigh", ReasoningPolicy.wireEffort("grok-4.6", EffortStop.Max))
+        assertEquals("off", ReasoningPolicy.wireEffort("kimi-k2.6", EffortStop.Low))
+        assertEquals("on", ReasoningPolicy.wireEffort("kimi-k2.6", EffortStop.Max))
+        assertEquals("low", ReasoningPolicy.wireEffort("deepseek-chat", EffortStop.Low))
+
+        val claude = JSONObject()
+        ReasoningPolicy.write(claude, "claude-sonnet-4.5", "max", responsesApi = false, outputTokenLimit = 8192)
+        assertEquals(8192 - 1024, claude.getJSONObject("thinking").getInt("budget_tokens"))
+
+        val grok = JSONObject()
+        ReasoningPolicy.write(grok, "grok-4.6", "max", responsesApi = true, outputTokenLimit = 8192)
+        assertEquals("xhigh", grok.getString("reasoning_effort"))
+
+        val toggle = JSONObject()
+        ReasoningPolicy.write(toggle, "kimi-k2.6", "low", responsesApi = false, outputTokenLimit = 8192)
+        assertEquals("disabled", toggle.getJSONObject("thinking").getString("type"))
+    }
 }

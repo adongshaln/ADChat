@@ -25,6 +25,16 @@ internal data class ReasoningChoice(val id: String, val label: String, val hint:
 /** 家族面板上展示的参数说明，让用户知道客户端到底发了什么。 */
 internal data class ReasoningContract(val field: String, val values: String)
 
+internal enum class EffortStop(val id: String, val label: String) {
+    Low("low", "Low"),
+    High("high", "High"),
+    Max("max", "Max");
+
+    companion object {
+        fun fromId(id: String): EffortStop? = entries.firstOrNull { it.id == id }
+    }
+}
+
 internal object ReasoningPolicy {
 
     const val DEFAULT = "default"
@@ -120,6 +130,35 @@ internal object ReasoningPolicy {
             ?: choices(model).firstOrNull()
     }
 
+    /** 界面只露出三档。GLM 的服务端默认是最大档，其余家族推荐 High。 */
+    fun recommendedStop(model: String): EffortStop = when (family(model)) {
+        ReasoningFamily.Glm -> EffortStop.Max
+        else -> EffortStop.High
+    }
+
+    fun snapStop(model: String, effort: String): EffortStop {
+        if (!isSupported(model)) return EffortStop.High
+        return when (effort.trim().lowercase()) {
+            "", DEFAULT -> recommendedStop(model)
+            "minimal", "none", "off", "low" -> EffortStop.Low
+            "max", "xhigh" -> EffortStop.Max
+            else -> EffortStop.High
+        }
+    }
+
+    /** 三档在发出去之前翻译成该家族真正认识的值。 */
+    fun wireEffort(model: String, stop: EffortStop): String = when (family(model)) {
+        ReasoningFamily.Gpt, ReasoningFamily.Glm, ReasoningFamily.KimiEffort, ReasoningFamily.DeepSeek -> stop.id
+        ReasoningFamily.Claude -> if (stop == EffortStop.Max) "high" else stop.id
+        ReasoningFamily.Grok -> when (stop) {
+            EffortStop.Low -> "low"
+            EffortStop.High -> "high"
+            EffortStop.Max -> "xhigh"
+        }
+        ReasoningFamily.KimiToggle -> if (stop == EffortStop.Low) "off" else "on"
+        ReasoningFamily.Unsupported -> DEFAULT
+    }
+
     fun contract(model: String, responsesApi: Boolean): ReasoningContract = when (family(model)) {
         ReasoningFamily.Gpt -> ReasoningContract(
             if (responsesApi) "reasoning.effort" else "reasoning_effort",
@@ -150,7 +189,13 @@ internal object ReasoningPolicy {
         outputTokenLimit: Int
     ) {
         val available = choices(model)
-        val value = available.firstOrNull { it.id == effort.trim() }?.id ?: DEFAULT
+        val raw = effort.trim().ifBlank { DEFAULT }
+        val value = when {
+            raw == DEFAULT -> DEFAULT
+            EffortStop.fromId(raw) != null -> wireEffort(model, EffortStop.fromId(raw)!!)
+            available.any { it.id == raw } -> raw
+            else -> DEFAULT
+        }
         when (family(model)) {
             ReasoningFamily.Gpt -> {
                 if (value == DEFAULT) return
