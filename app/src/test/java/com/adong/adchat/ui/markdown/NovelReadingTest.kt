@@ -35,11 +35,4 @@ class NovelReadingTest {
             spans
         )
     }
-
-    @Test
-    fun dialogueAndPlainEnglishAreNotIndented() {
-        assertTrue(novelBodyDisplay("他推开门。").startsWith("　　"))
-        assertEquals("「进来。」", novelBodyDisplay("「进来。」"))
-        assertEquals("He opened the door.", novelBodyDisplay("He opened the door."))
-    }
 }

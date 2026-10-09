@@ -3,10 +3,6 @@ package com.adong.adchat.ui.markdown
 internal const val NAME_MARK_OPEN = "/.."
 internal const val NAME_MARK_CLOSE = "../"
 
-/** Only narrative prose should emit the marks. Ordinary answers stay unmarked. */
-internal const val NARRATIVE_NAME_MARK_INSTRUCTION =
-    "写小说、故事或叙事正文时，用 /..人名../ 包住人物姓名，只包名字本身。普通问答、代码、列表和标题不要使用这对符号，也不要向用户解释它。"
-
 private val CHAPTER_HEADING = Regex(
     """^(第\s*[0-9０-９一二三四五六七八九十百千零两〇]+\s*[章节回卷部篇幕]|序章|楔子|尾声|终章|番外|后记|前言|Chapter\s+\d+).*$""",
     RegexOption.IGNORE_CASE
@@ -37,17 +33,6 @@ internal fun emphasisSpanAllowed(inner: String): Boolean {
     if (inner.any { it == '\n' || it == '。' || it == '！' || it == '？' || it == '!' || it == '?' || it == '，' }) return false
     if (inner.all { it.isWhitespace() || it == '*' || it == '_' || it == '·' || it == '•' }) return false
     return true
-}
-
-internal fun novelBodyDisplay(text: String): String {
-    val trimmed = text.trim()
-    if (trimmed.isEmpty()) return text
-    val first = trimmed.first()
-    if (first in "「“\"『") return trimmed
-    if (trimmed.startsWith(NAME_MARK_OPEN)) return trimmed
-    if (!trimmed.any { it in '一'..'鿿' }) return trimmed
-    if (trimmed.startsWith("　")) return trimmed
-    return "　　$trimmed"
 }
 
 internal sealed class ReadingSpan {

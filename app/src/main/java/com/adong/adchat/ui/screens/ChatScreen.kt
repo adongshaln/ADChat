@@ -93,7 +93,6 @@ import com.adong.adchat.ui.markdown.emphasisSpanAllowed
 import com.adong.adchat.ui.markdown.isChapterHeading
 import com.adong.adchat.ui.markdown.isSceneBreak
 import com.adong.adchat.ui.markdown.isStarredProseLine
-import com.adong.adchat.ui.markdown.novelBodyDisplay
 import com.adong.adchat.ui.markdown.parseMarkdownTableAt
 import com.adong.adchat.ui.markdown.readingSpans
 import com.adong.adchat.ui.markdown.ReadingSpan
@@ -1388,7 +1387,7 @@ private fun MarkdownTextBlock(raw: String, showCursor: Boolean, error: Boolean) 
                     if (hasCursor) AsterWritingCursorLine(error)
                 }
                 else -> ReadableText(
-                    inlineMarkdown(novelBodyDisplay(block.text)),
+                    inlineMarkdown(block.text),
                     bodyStyle,
                     if (error) Danger else Ink,
                     selectable = !showCursor,
@@ -1708,11 +1707,7 @@ private fun inlineMarkdown(text: String): AnnotatedString {
     val base = buildAnnotatedString {
         readingSpans(text).forEach { span ->
             when (span) {
-                is ReadingSpan.Name -> {
-                    pushStyle(SpanStyle(color = NameInk, fontWeight = FontWeight.Medium))
-                    append(span.value)
-                    pop()
-                }
+                is ReadingSpan.Name -> append(basicInlineMarkdown(span.value))
                 is ReadingSpan.Text -> append(basicInlineMarkdown(span.value))
             }
         }

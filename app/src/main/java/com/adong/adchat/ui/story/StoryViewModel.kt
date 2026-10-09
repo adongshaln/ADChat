@@ -1432,12 +1432,8 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
         var result: com.adong.adchat.data.ChatCompletionResult? = null
         var state = "failed"
         try {
-            val prompt = if (category == "prose") {
-                listOf(systemPrompt, com.adong.adchat.ui.markdown.NARRATIVE_NAME_MARK_INSTRUCTION)
-                    .filter(String::isNotBlank).joinToString("\n\n")
-            } else systemPrompt
             val response = api.streamChat(
-                profile, model, prompt, preparedHistory, cacheKey,
+                profile, model, systemPrompt, preparedHistory, cacheKey,
                 trimHistory = false,
                 skillsAllowed = category in setOf("prose", "discussion") && cacheKey.startsWith("aster-story-"),
                 generationOptions = generationOptions,
