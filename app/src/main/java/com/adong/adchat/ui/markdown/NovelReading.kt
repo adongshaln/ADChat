@@ -52,8 +52,9 @@ internal fun joinProseLine(paragraph: StringBuilder, line: String) {
 }
 
 private fun paragraphBreakNeedsSpace(previous: Char, next: Char): Boolean {
-    fun cjk(char: Char) = char.code in 0x2E80..0x9FFF || char in "，。！？、；：…—～「」『』（）“”‘’"
-    return !cjk(previous) && !cjk(next)
+    fun latin(char: Char) = char in 'A'..'Z' || char in 'a'..'z' || char in '0'..'9'
+    if (latin(next) || latin(previous)) return true
+    return false
 }
 
 internal sealed class ReadingSpan {
