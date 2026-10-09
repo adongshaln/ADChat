@@ -25,9 +25,15 @@ class NovelReadingTest {
     @Test
     fun nameMarksHideDelimitersAndLeaveUnclosedTextAlone() {
         val spans = readingSpans("门外是/..沈青../，还有/..未写完")
-        assertEquals(ReadingSpan.Text("门外是"), spans[0])
-        assertEquals(ReadingSpan.Name("沈青"), spans[1])
-        assertEquals(ReadingSpan.Text("，还有/..未写完"), spans[2])
+        assertEquals(
+            listOf(
+                ReadingSpan.Text("门外是"),
+                ReadingSpan.Name("沈青"),
+                ReadingSpan.Text("，还有"),
+                ReadingSpan.Text("/..未写完")
+            ),
+            spans
+        )
     }
 
     @Test
