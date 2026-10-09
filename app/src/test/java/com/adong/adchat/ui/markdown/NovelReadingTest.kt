@@ -35,4 +35,16 @@ class NovelReadingTest {
             spans
         )
     }
+
+    @Test
+    fun singleLineBreaksReflowInsideOneParagraph() {
+        val paragraph = StringBuilder()
+        joinProseLine(paragraph, "雅儿贝德的额角渗出了一滴冷汗，")
+        joinProseLine(paragraph, "背后那对漆黑的羽翼紧绷到了极致。")
+        joinProseLine(paragraph, "She looked up.")
+        assertEquals(
+            "雅儿贝德的额角渗出了一滴冷汗，背后那对漆黑的羽翼紧绷到了极致。 She looked up.",
+            paragraph.toString()
+        )
+    }
 }

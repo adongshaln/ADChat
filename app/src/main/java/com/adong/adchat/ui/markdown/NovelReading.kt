@@ -35,6 +35,27 @@ internal fun emphasisSpanAllowed(inner: String): Boolean {
     return true
 }
 
+/** A single source newline stays in the same paragraph and reflows. Blank lines still split paragraphs. */
+internal fun joinProseLine(paragraph: StringBuilder, line: String) {
+    val next = line.trim()
+    if (next.isEmpty()) return
+    if (paragraph.isNotEmpty()) {
+        val previous = paragraph.last()
+        val start = next.first()
+        if (previous.isWhitespace() || start.isWhitespace()) {
+            // already separated
+        } else if (paragraphBreakNeedsSpace(previous, start)) {
+            paragraph.append(' ')
+        }
+    }
+    paragraph.append(next)
+}
+
+private fun paragraphBreakNeedsSpace(previous: Char, next: Char): Boolean {
+    fun cjk(char: Char) = char.code in 0x2E80..0x9FFF || char in "，。！？、；：…—～「」『』（）“”‘’"
+    return !cjk(previous) && !cjk(next)
+}
+
 internal sealed class ReadingSpan {
     data class Text(val value: String) : ReadingSpan()
     data class Name(val value: String) : ReadingSpan()

@@ -93,6 +93,7 @@ import com.adong.adchat.ui.markdown.emphasisSpanAllowed
 import com.adong.adchat.ui.markdown.isChapterHeading
 import com.adong.adchat.ui.markdown.isSceneBreak
 import com.adong.adchat.ui.markdown.isStarredProseLine
+import com.adong.adchat.ui.markdown.joinProseLine
 import com.adong.adchat.ui.markdown.parseMarkdownTableAt
 import com.adong.adchat.ui.markdown.readingSpans
 import com.adong.adchat.ui.markdown.ReadingSpan
@@ -1305,13 +1306,11 @@ private fun parseMarkdownBlocks(text: String): List<MarkdownBlock> {
             }
             MARKDOWN_QUOTE_PREFIX.containsMatchIn(line) -> {
                 flushParagraph()
-                if (quote.isNotEmpty()) quote.append('\n')
-                quote.append(line.replaceFirst(MARKDOWN_QUOTE_PREFIX, "").trimEnd())
+                joinProseLine(quote, line.replaceFirst(MARKDOWN_QUOTE_PREFIX, "").trimEnd())
             }
             else -> {
                 flushQuote()
-                if (paragraph.isNotEmpty()) paragraph.append('\n')
-                paragraph.append(line.trim())
+                joinProseLine(paragraph, line.trim())
             }
         }
         lineIndex++
@@ -1707,7 +1706,11 @@ private fun inlineMarkdown(text: String): AnnotatedString {
     val base = buildAnnotatedString {
         readingSpans(text).forEach { span ->
             when (span) {
-                is ReadingSpan.Name -> append(basicInlineMarkdown(span.value))
+                is ReadingSpan.Name -> {
+                    pushStyle(SpanStyle(color = NameInk, fontWeight = FontWeight.Medium))
+                    append(span.value)
+                    pop()
+                }
                 is ReadingSpan.Text -> append(basicInlineMarkdown(span.value))
             }
         }
