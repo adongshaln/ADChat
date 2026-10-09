@@ -8,7 +8,7 @@ internal const val NARRATIVE_NAME_MARK_INSTRUCTION =
     "写小说、故事或叙事正文时，用 /..人名../ 包住人物姓名，只包名字本身。普通问答、代码、列表和标题不要使用这对符号，也不要向用户解释它。"
 
 private val CHAPTER_HEADING = Regex(
-    """^(第\s*[0-9０-９一二三四五六七八九十百千零两〇]+\s*[章节回卷部篇幕]|序章|楔子|尾声|终章|番外|后记|前言|Chapter\s+\d+)\b?.*$""",
+    """^(第\s*[0-9０-９一二三四五六七八九十百千零两〇]+\s*[章节回卷部篇幕]|序章|楔子|尾声|终章|番外|后记|前言|Chapter\s+\d+).*$""",
     RegexOption.IGNORE_CASE
 )
 
