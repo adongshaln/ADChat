@@ -26,6 +26,7 @@ import com.adong.adchat.data.summary
 import com.adong.adchat.data.story.Story
 import com.adong.adchat.data.story.StoryConflictEntry
 import com.adong.adchat.data.story.StoryChangeEntry
+import com.adong.adchat.data.story.CharacterCardFile
 import com.adong.adchat.data.story.StoryCastContext
 import com.adong.adchat.data.story.StoryCharacterCard
 import com.adong.adchat.data.story.StoryArchiveStore
