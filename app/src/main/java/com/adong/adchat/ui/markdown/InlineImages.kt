@@ -7,7 +7,6 @@ internal sealed class InlinePiece {
 
 private val MARKDOWN_IMAGE = Regex("""!\[([^\]\n]*)]\((https?://[^)\s]+)\)""")
 private val WRAPPED_IMAGE = Regex("""\*\+-+(https?://[^\s*]+)\*\+-+""")
-private val STAR_PLUS_IMAGE = Regex("""\*\+\s*(https?://\S+)""")
 private val BARE_IMAGE = Regex(
     """https?://[^\s<>'"()\]]+\.(?:jpe?g|png|webp|gif|avif)(?:\?[^\s<>'"()\]]*)?""",
     RegexOption.IGNORE_CASE
@@ -23,10 +22,6 @@ internal fun splitInlineImages(text: String): List<InlinePiece> {
     }
     WRAPPED_IMAGE.findAll(text).forEach { match ->
         hits += ImageHit(match.range.first, match.range.last + 1, match.groupValues[1], "")
-    }
-    STAR_PLUS_IMAGE.findAll(text).forEach { match ->
-        val url = match.groupValues[1].trimEnd('*', '+', '-', ')', ']', ',', '。')
-        if (url.isImageUrl()) hits += ImageHit(match.range.first, match.range.first + match.value.indexOf(url) + url.length, url, "")
     }
     BARE_IMAGE.findAll(text).forEach { match ->
         hits += ImageHit(match.range.first, match.range.last + 1, match.value, "")
@@ -50,4 +45,22 @@ internal fun splitInlineImages(text: String): List<InlinePiece> {
     return pieces.filterNot { it is InlinePiece.Prose && it.text.isBlank() }
 }
 
-private fun String.isImageUrl(): Boolean = BARE_IMAGE.matches(trim())
+internal data class TextLink(val end: Int, val label: String, val url: String)
+
+private val MARKDOWN_LINK = Regex("""^\[([^\]\n]+)]\((https?://[^)\s]+)\)""")
+private val BARE_LINK = Regex("""^https?://[^\s<>'"()\]]+""")
+private val LINK_TRAILING = ".,;:!?，。！？、）)]》」』"
+
+/** A markdown link or a bare http(s) address starting at [index]. */
+internal fun linkAt(text: String, index: Int): TextLink? {
+    val slice = text.substring(index)
+    MARKDOWN_LINK.find(slice)?.let { match ->
+        if (match.range.first != 0) return@let
+        return TextLink(index + match.range.last + 1, match.groupValues[1], match.groupValues[2])
+    }
+    val bare = BARE_LINK.find(slice) ?: return null
+    if (bare.range.first != 0) return null
+    val raw = bare.value.trimEnd { it in LINK_TRAILING }
+    if (raw.length < "https://a".length) return null
+    return TextLink(index + raw.length, raw, raw)
+}

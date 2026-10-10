@@ -15,8 +15,12 @@ class InlineImagesTest {
     }
 
     @Test
-    fun starPlusImageLinkIsNotLeftAsText() {
-        val pieces = splitInlineImages("封面 *+https://img.example.com/cover.webp")
-        assertEquals(InlinePiece.RemoteImage("https://img.example.com/cover.webp", ""), pieces[1])
+    fun markdownAndBareAddressesAreLinksWithoutSwallowingPunctuation() {
+        val linked = linkAt("见 [维基](https://example.com/a) 这里", 2)
+        assertEquals("维基", linked?.label)
+        assertEquals("https://example.com/a", linked?.url)
+        val bare = linkAt("打开 https://example.com/path。", 3)
+        assertEquals("https://example.com/path", bare?.url)
+        assertTrue(bare!!.end < "打开 https://example.com/path。".length)
     }
 }

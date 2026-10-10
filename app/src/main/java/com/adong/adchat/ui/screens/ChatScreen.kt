@@ -54,7 +54,10 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
+import androidx.compose.ui.text.TextLinkStyles
+import androidx.compose.runtime.staticCompositionLocalOf
+import com.adong.adchat.ui.markdown.linkAt
 import androidx.compose.ui.text.Placeholder
 import androidx.compose.ui.text.PlaceholderVerticalAlign
 import androidx.compose.ui.text.SpanStyle
@@ -1136,6 +1139,13 @@ private fun RichMessageText(
 
 @Composable
 private fun StreamingProseText(content: String, error: Boolean) {
+    LinkConfirm {
+    streamingProseText(content, error)
+    }
+}
+
+@Composable
+private fun streamingProseText(content: String, error: Boolean) {
     val normalized = content.replace("\r\n", "\n")
     // 尾段单独渲染，不把整段重新分词：生成期间每个 token 都重排会让长回答明显掉帧，
     // key(index, paragraph) 还会让尾段视图反复销毁重建。
@@ -1178,6 +1188,7 @@ internal fun StructuredMessageText(
     error: Boolean,
     htmlScriptsAllowed: Boolean = true
 ) {
+    LinkConfirm {
     val parts = remember(content) { content.split("```") }
     Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
         parts.forEachIndexed { index, raw ->
@@ -1205,6 +1216,7 @@ internal fun StructuredMessageText(
                 )
             }
         }
+    }
     }
 }
 
@@ -1740,6 +1752,28 @@ private fun AsterWritingCursorLine(error: Boolean) {
     )
 }
 
+private val LocalConfirmLink = staticCompositionLocalOf<(String) -> Unit> { {} }
+
+@Composable
+private fun LinkConfirm(content: @Composable () -> Unit) {
+    var pending by remember { mutableStateOf<String?>(null) }
+    val handler = LocalUriHandler.current
+    CompositionLocalProvider(LocalConfirmLink provides { pending = it }) { content() }
+    val url = pending ?: return
+    AlertDialog(
+        onDismissRequest = { pending = null },
+        title = { Text("打开外部链接") },
+        text = { Text("即将离开 Aster，在浏览器中打开：\n$url") },
+        confirmButton = {
+            TextButton(onClick = {
+                pending = null
+                runCatching { handler.openUri(url) }
+            }) { Text("打开") }
+        },
+        dismissButton = { TextButton(onClick = { pending = null }) { Text("取消") } }
+    )
+}
+
 @Composable
 private fun inlineMarkdown(text: String): AnnotatedString {
     val base = buildAnnotatedString {
@@ -1776,8 +1810,18 @@ private fun inlineMarkdown(text: String): AnnotatedString {
 @Composable
 private fun basicInlineMarkdown(text: String): AnnotatedString = buildAnnotatedString {
     var index = 0
+    val confirmLink = LocalConfirmLink.current
+    val linkStyle = TextLinkStyles(SpanStyle(color = NameInk, textDecoration = TextDecoration.Underline))
     val tokens = listOf("**", "__", "~~", "`", "*", "_")
     while (index < text.length) {
+        val link = linkAt(text, index)
+        if (link != null) {
+            pushLink(LinkAnnotation.Clickable(link.url, linkStyle) { _ -> confirmLink(link.url) })
+            append(link.label)
+            pop()
+            index = link.end
+            continue
+        }
         val token = tokens.firstOrNull { text.startsWith(it, index) }
         if (token != null) {
             val end = text.indexOf(token, index + token.length)
