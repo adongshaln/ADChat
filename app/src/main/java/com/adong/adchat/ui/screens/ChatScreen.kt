@@ -29,7 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -184,7 +184,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
         }
     }
     var autoFollow by remember { mutableStateOf(true) }
-    val messageHeights = remember { mutableMapOf<Long, Int>() }
+    val imageFrames = remember { mutableMapOf<String, Pair<Int, Int>>() }
     var composerFocused by remember { mutableStateOf(false) }
     var composerHeightPx by remember { mutableIntStateOf(0) }
     var pendingFileExport by remember { mutableStateOf<ChatFileAttachment?>(null) }
@@ -341,25 +341,18 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                         ),
                         verticalArrangement = Arrangement.spacedBy(30.dp)
                     ) {
-                        itemsIndexed(
+                        items(
                             items = vm.messages,
-                            key = { _, message -> message.id },
-                            contentType = { _, message -> message.role }
-                        ) { index, message ->
+                            key = { it.id },
+                            contentType = { it.role }
+                        ) { message ->
+                        CompositionLocalProvider(LocalImageFrames provides imageFrames) {
                         ChatMessageItem(
                             message = message,
                             canRegenerate = message.id == regeneratableMessageId,
                             canRetry = message.id == retryableMessageId,
                             onRetry = { vm.retryMessage(message.id) },
                             onRegenerate = { vm.regenerateMessage(message.id) },
-                            modifier = Modifier.onSizeChanged { size ->
-                                val previous = messageHeights[message.id]
-                                messageHeights[message.id] = size.height
-                                if (previous == null || previous == size.height || autoFollow) return@onSizeChanged
-                                if (index > listState.firstVisibleItemIndex) return@onSizeChanged
-                                val delta = size.height - previous
-                                scope.launch { listState.scroll { scrollBy(delta.toFloat()) } }
-                            },
                             onEditResend = {
                                 val index = vm.messages.indexOfFirst { it.id == message.id }
                                 val removedAfter = (vm.messages.size - index - 1).coerceAtLeast(0)
@@ -390,6 +383,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                                 }
                             }
                         )
+                        }
                         }
                         item { Spacer(Modifier.height(4.dp)) }
                     }
@@ -1400,13 +1394,17 @@ private fun PixivArtworkPreview(id: String, pageUrl: String) {
     )
 }
 
+private val LocalImageFrames = staticCompositionLocalOf<MutableMap<String, Pair<Int, Int>>> { mutableMapOf() }
+
 @Composable
 private fun ChatRemoteImage(url: String, alt: String) {
     val context = LocalContext.current
+    val frames = LocalImageFrames.current
+    val locked = frames[url]
     var bytes by remember(url) { mutableStateOf<ByteArray?>(null) }
     var directFailed by remember(url) { mutableStateOf(false) }
     var downloadFailed by remember(url) { mutableStateOf(false) }
-    var pixels by remember(url) { mutableStateOf(0 to 0) }
+    var pixels by remember(url) { mutableStateOf(locked ?: (0 to 0)) }
     var zoomed by remember(url) { mutableStateOf(false) }
     LaunchedEffect(url, directFailed) {
         if (!directFailed || bytes != null || downloadFailed) return@LaunchedEffect
@@ -1414,7 +1412,7 @@ private fun ChatRemoteImage(url: String, alt: String) {
         if (loaded != null) bytes = loaded else downloadFailed = true
     }
     val shown = bytes ?: url
-    val request = ImageRequest.Builder(context).data(shown).crossfade(bytes == null)
+    val request = ImageRequest.Builder(context).data(shown).crossfade(bytes == null && locked == null)
     if (bytes == null) chatImageHeaders(url).forEach { (name, value) -> request.addHeader(name, value) }
     val model = request.build()
     if (zoomed) ZoomedChatImage(model, alt.ifBlank { "图片" }) { zoomed = false }
@@ -1439,10 +1437,13 @@ private fun ChatRemoteImage(url: String, alt: String) {
                 modifier = frame.clip(RoundedCornerShape(14.dp)).clickable { zoomed = true },
                 contentScale = ContentScale.Fit,
                 onSuccess = { state ->
+                    if (url in frames) return@onSuccess
                     val width = state.painter.intrinsicSize.width
                     val height = state.painter.intrinsicSize.height
                     if (width.isFinite() && height.isFinite() && width > 0f && height > 0f) {
-                        pixels = width.toInt() to height.toInt()
+                        val measured = width.toInt() to height.toInt()
+                        frames[url] = measured
+                        pixels = measured
                     }
                 },
                 onError = { if (bytes == null) directFailed = true }
