@@ -367,7 +367,12 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
         setupError = null
         viewModelScope.launch(Dispatchers.IO) {
             runCatching {
-                val raw = api.completePlain(profile, story.model.ifBlank { profile.chatModel }, STORY_CHAR_CARD_PROMPT, transcript)
+                val raw = api.completePlain(
+                    profile,
+                    story.model.ifBlank { profile.chatModel },
+                    STORY_CHAR_CARD_PROMPT,
+                    "$transcript\n\n请输出 JSON。scenario 写这部同人的前提，description 只写对方这个人。"
+                )
                 val card = StoryCharacterCard.parse(raw)
                 val updated = store.updateStorySetup(story.id, StorySetupPhase.CharReview, charCardJson = card.toJson())
                 withContext(Dispatchers.Main) { replaceStory(updated) }
@@ -411,7 +416,7 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
                     profile,
                     story.model.ifBlank { profile.chatModel },
                     STORY_PERSONA_PROMPT,
-                    "对方角色卡：\n$charCard\n\n讨论：\n$transcript\n\n用户要担任：$identity"
+                    "对方角色卡：\n$charCard\n\n讨论：\n$transcript\n\n用户要担任：$identity\n\npersona 要写进这部作品，不要只重复对方的人物介绍。"
                 )
                 val persona = parseUserPersona(raw)
                 val updated = store.updateStorySetup(story.id, StorySetupPhase.PersonaReview, userPersona = persona)

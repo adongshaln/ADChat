@@ -291,17 +291,19 @@ private fun StoryHeader(
             modifier = Modifier.padding(start = 48.dp, end = 48.dp, top = 2.dp, bottom = 4.dp)
         )
         Text(
-            "预设 · $tavernPresetName",
+            "预设 · ${readablePresetName(tavernPresetName)}",
             color = MutedInk,
             style = MaterialTheme.typography.labelMedium,
-            modifier = Modifier.padding(start = 22.dp, bottom = 4.dp).clickable(onClick = onTavernPresets)
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(start = 22.dp, end = 22.dp, bottom = 4.dp).clickable(onClick = onTavernPresets)
         )
     }
     if (showActions) AdActionSheet(
         title = "故事选项", subtitle = "管理故事与创作路线",
         actions = listOf(
             AdActionOption("archive", "故事档案", "设定、人物与剧情记忆", Icons.Rounded.FolderOpen),
-            AdActionOption("preset", "酒馆预设", "正文 · $tavernPresetName", Icons.Rounded.Tune),
+            AdActionOption("preset", "酒馆预设", "正文 · ${readablePresetName(tavernPresetName)}", Icons.Rounded.Tune),
             AdActionOption("history", "历史路线", "查看与切换创作路线", Icons.Rounded.History, enabled = historyEnabled),
             AdActionOption("stories", "切换故事", icon = Icons.Rounded.AutoStories),
             AdActionOption("delete", "删除整个对话", "删除这个故事及其全部资料", Icons.Rounded.DeleteOutline, destructive = true, enabled = historyEnabled)
@@ -318,6 +320,11 @@ private fun StoryHeader(
         },
         onDismiss = { showActions = false }
     )
+}
+
+private fun readablePresetName(name: String): String {
+    val trimmed = name.trim()
+    return if (trimmed.length >= 16 && trimmed.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' }) "自定义预设" else trimmed
 }
 
 @Composable
@@ -351,7 +358,7 @@ private fun TavernPresetSheet(
         )
         presets.forEach { preset ->
             TavernPresetRow(
-                title = preset.name,
+                title = readablePresetName(preset.name),
                 subtitle = "${preset.enabledPromptCount}/${preset.promptCount} 条提示 · ${preset.enabledRegexCount}/${preset.regexCount} 条正则",
                 selected = preset.id == activeId,
                 builtIn = preset.builtIn,
@@ -1301,7 +1308,8 @@ private fun StoryWorkspaceContent(
                 onConfirmPersona = storyVm::confirmPersona,
                 onRegeneratePersona = storyVm::regeneratePersona
             )
-            StoryComposer(
+            if (targetStory.setupPhase == StorySetupPhase.Discussion || targetStory.setupPhase == StorySetupPhase.Prose) {
+                StoryComposer(
                 skillScope = "aster-story-${storyVm.activeStoryId}-${workspace.dbValue}",
                 value = storyVm.draft(workspace),
                 attachments = savedState.attachments,
@@ -1320,7 +1328,8 @@ private fun StoryWorkspaceContent(
                 onStop = { storyVm.stop(workspace) },
                 onFocusChange = { composerFocused = it },
                 modifier = Modifier.fillMaxWidth()
-            )
+                )
+            }
         }
     }
 }

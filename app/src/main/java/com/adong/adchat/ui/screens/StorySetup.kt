@@ -2,10 +2,14 @@ package com.adong.adchat.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -18,6 +22,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import com.adong.adchat.data.ApiProfile
 import com.adong.adchat.data.story.StoryCharacterCard
@@ -67,30 +72,37 @@ fun StorySetupBar(
             error?.let { Text(it, color = Danger, style = MaterialTheme.typography.bodySmall) }
             when (phase) {
                 StorySetupPhase.Discussion -> {
-                    Text("结束后会根据讨论生成对方的角色卡，你可以先改再确认。", color = MutedInk, style = MaterialTheme.typography.bodySmall)
+                    Text("结束后会生成对方的角色卡：人是人，这部同人写在「这部故事」里。", color = MutedInk, style = MaterialTheme.typography.bodySmall)
                     Button(onClick = { onEndDiscussion(profile) }, enabled = !busy) { Text(if (busy) "正在整理…" else "结束讨论") }
                 }
                 StorySetupPhase.CharReview -> {
-                    OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), enabled = !busy, label = { Text("名字") }, singleLine = true)
-                    OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth(), enabled = !busy, label = { Text("描述") }, minLines = 3)
-                    OutlinedTextField(personality, { personality = it }, Modifier.fillMaxWidth(), enabled = !busy, label = { Text("性格") }, minLines = 2)
-                    OutlinedTextField(scenario, { scenario = it }, Modifier.fillMaxWidth(), enabled = !busy, label = { Text("场景") }, minLines = 2)
+                    Text("滑到底下可以改。「这部故事」才是同人前提，不要只留人物介绍。", color = MutedInk, style = MaterialTheme.typography.bodySmall)
+                    SetupFields {
+                        OutlinedTextField(name, { name = it }, Modifier.fillMaxWidth(), enabled = !busy, label = { Text("名字") }, singleLine = true)
+                        OutlinedTextField(description, { description = it }, Modifier.fillMaxWidth(), enabled = !busy, label = { Text("这个人") }, minLines = 3)
+                        OutlinedTextField(personality, { personality = it }, Modifier.fillMaxWidth(), enabled = !busy, label = { Text("性格") }, minLines = 2)
+                        OutlinedTextField(scenario, { scenario = it }, Modifier.fillMaxWidth(), enabled = !busy, label = { Text("这部故事") }, minLines = 3)
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(
                             onClick = { onConfirmChar(StoryCharacterCard(name.trim(), description.trim(), personality.trim(), scenario.trim())) },
-                            enabled = !busy && name.isNotBlank() && description.isNotBlank()
+                            enabled = !busy && name.isNotBlank() && description.isNotBlank() && scenario.isNotBlank()
                         ) { Text("确认角色卡") }
                         OutlinedButton(onClick = { onRegenerateChar(profile) }, enabled = !busy) { Text("重新生成") }
                     }
                 }
                 StorySetupPhase.Identity -> {
-                    OutlinedTextField(identity, onIdentity, Modifier.fillMaxWidth(), enabled = !busy, label = { Text("你的身份") }, minLines = 2)
+                    SetupFields {
+                        OutlinedTextField(identity, onIdentity, Modifier.fillMaxWidth(), enabled = !busy, label = { Text("你的身份") }, minLines = 2)
+                    }
                     Button(onClick = { onSubmitIdentity(profile) }, enabled = !busy && identity.isNotBlank()) {
                         Text(if (busy) "正在整理…" else "生成身份卡")
                     }
                 }
                 StorySetupPhase.PersonaReview -> {
-                    OutlinedTextField(persona, { persona = it }, Modifier.fillMaxWidth(), enabled = !busy, label = { Text("身份卡") }, minLines = 4)
+                    SetupFields {
+                        OutlinedTextField(persona, { persona = it }, Modifier.fillMaxWidth(), enabled = !busy, label = { Text("身份卡") }, minLines = 4)
+                    }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { onConfirmPersona(persona) }, enabled = !busy && persona.isNotBlank()) { Text("进入正文") }
                         OutlinedButton(onClick = { onRegeneratePersona(profile) }, enabled = !busy) { Text("重新生成") }
@@ -100,4 +112,14 @@ fun StorySetupBar(
             }
         }
     }
+}
+
+@Composable
+private fun SetupFields(content: @Composable ColumnScope.() -> Unit) {
+    val maxHeight = (LocalConfiguration.current.screenHeightDp * 0.34f).dp.coerceIn(180.dp, 340.dp)
+    Column(
+        Modifier.fillMaxWidth().heightIn(max = maxHeight).verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        content = content
+    )
 }

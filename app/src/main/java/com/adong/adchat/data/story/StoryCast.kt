@@ -47,7 +47,9 @@ internal fun extractJsonObject(raw: String): String {
 }
 
 internal const val STORY_CHAR_CARD_PROMPT =
-    "根据讨论，只输出一个 JSON 对象，不要解释。字段：name、description、personality、scenario。这是故事里的对方（{{char}}），不是用户。不要写开场白。讨论里没说定的内容留空字符串，不要编造。"
+    "根据讨论，只输出一个 JSON 对象，不要解释，不要写开场白，不要编造讨论里没说定的内容。这是故事里的对方（{{char}}），不是用户。" +
+        "name 是对方的名字。description 只写这个人是谁，不要写整部作品。personality 是性格。" +
+        "scenario 必须是这部作品本身：哪部原作的同人、世界观、局面、已商定的剧情，以及这个人在其中的位置。不要把人物小传再抄一遍。讨论若是一部同人，scenario 不能空。"
 
 internal const val STORY_PERSONA_PROMPT =
-    "根据讨论和用户要担任的身份，只输出一个 JSON 对象，不要解释。字段只有 persona：用几段话说明用户（{{user}}）是谁、和故事的关系。不要写开场白，不要描写对方。"
+    "根据讨论和用户要担任的身份，只输出一个 JSON 对象，不要解释。字段只有 persona：说明用户（{{user}}）是谁，以及在这部已商定的作品里处于什么位置。不要写开场白，不要把对方的人物小传再写一遍。"
