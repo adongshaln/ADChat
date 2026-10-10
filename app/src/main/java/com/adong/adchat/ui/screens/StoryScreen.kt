@@ -50,6 +50,7 @@ import com.adong.adchat.data.story.StoryProposal
 import com.adong.adchat.data.story.StoryMemoryRecord
 import com.adong.adchat.data.story.StoryMessageWithRevision
 import com.adong.adchat.data.story.StoryRevisionState
+import com.adong.adchat.data.story.StorySetupPhase
 import com.adong.adchat.data.story.StoryWorkspace
 import com.adong.adchat.ui.MainViewModel
 import com.adong.adchat.ui.components.*
@@ -1269,49 +1270,58 @@ private fun StoryWorkspaceContent(
             }
         }
 
+        val setupDocked = targetStory.setupPhase != StorySetupPhase.Prose && profile != null
         ConversationJumpToBottom(
             visible = listState.canScrollForward && storyVm.error(workspace) == null,
             loading = loading,
             onClick = { autoFollow = true; scope.launch { listState.animateScrollToItem(bottomItemIndex) } },
-            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = (composerHeight - 24.dp).coerceAtLeast(0.dp))
+            modifier = Modifier.align(Alignment.BottomCenter).padding(
+                bottom = if (setupDocked) composerHeight + 8.dp else (composerHeight - 24.dp).coerceAtLeast(0.dp)
+            )
         )
 
-        StorySetupBar(
-            phase = story.setupPhase,
-            charCardJson = story.charCardJson,
-            userPersona = story.userPersona,
-            identity = storyVm.identityDraft,
-            busy = storyVm.setupBusy,
-            error = storyVm.setupError,
-            profile = profile,
-            onIdentity = storyVm::updateIdentityDraft,
-            onEndDiscussion = storyVm::endDiscussion,
-            onConfirmChar = storyVm::confirmCharCard,
-            onRegenerateChar = storyVm::regenerateCharCard,
-            onSubmitIdentity = storyVm::submitIdentity,
-            onConfirmPersona = storyVm::confirmPersona,
-            onRegeneratePersona = storyVm::regeneratePersona
-        )
-        StoryComposer(
-            skillScope = "aster-story-${storyVm.activeStoryId}-${workspace.dbValue}",
-            value = storyVm.draft(workspace),
-            attachments = savedState.attachments,
-            attachmentBusy = storyVm.attachmentBusy,
-            onPickImages = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
-            onPickDocument = { documentPicker.launch(com.adong.adchat.data.DocumentImport.mimeTypes) },
-            onRemoveImage = { storyVm.removeDraftImage(it,workspace) },
-            workspace = workspace,
-            loading = loading,
-            routeAvailable = profile != null,
-            onValueChange = { storyVm.updateDraft(it, workspace) },
-            onSend = {
-                if (profile != null) storyVm.send(profile, workspace) else storyVm.openArchive()
-                autoFollow = true
-            },
-            onStop = { storyVm.stop(workspace) },
-            onFocusChange = { composerFocused = it },
-            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().onSizeChanged { composerHeight=with(composerDensity) { it.height.toDp() } }
-        )
+        Column(
+            modifier = Modifier.align(Alignment.BottomCenter).navigationBarsPadding().onSizeChanged {
+                composerHeight = with(composerDensity) { it.height.toDp() }
+            }
+        ) {
+            StorySetupBar(
+                phase = targetStory.setupPhase,
+                charCardJson = targetStory.charCardJson,
+                userPersona = targetStory.userPersona,
+                identity = storyVm.identityDraft,
+                busy = storyVm.setupBusy,
+                error = storyVm.setupError,
+                profile = profile,
+                onIdentity = storyVm::updateIdentityDraft,
+                onEndDiscussion = storyVm::endDiscussion,
+                onConfirmChar = storyVm::confirmCharCard,
+                onRegenerateChar = storyVm::regenerateCharCard,
+                onSubmitIdentity = storyVm::submitIdentity,
+                onConfirmPersona = storyVm::confirmPersona,
+                onRegeneratePersona = storyVm::regeneratePersona
+            )
+            StoryComposer(
+                skillScope = "aster-story-${storyVm.activeStoryId}-${workspace.dbValue}",
+                value = storyVm.draft(workspace),
+                attachments = savedState.attachments,
+                attachmentBusy = storyVm.attachmentBusy,
+                onPickImages = { imagePicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
+                onPickDocument = { documentPicker.launch(com.adong.adchat.data.DocumentImport.mimeTypes) },
+                onRemoveImage = { storyVm.removeDraftImage(it, workspace) },
+                workspace = workspace,
+                loading = loading,
+                routeAvailable = profile != null,
+                onValueChange = { storyVm.updateDraft(it, workspace) },
+                onSend = {
+                    if (profile != null) storyVm.send(profile, workspace) else storyVm.openArchive()
+                    autoFollow = true
+                },
+                onStop = { storyVm.stop(workspace) },
+                onFocusChange = { composerFocused = it },
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
