@@ -43,7 +43,9 @@ data class ApiProfile(
     val extraHeaders: String = "",
     val cachedModels: List<ApiModel> = emptyList(),
     val lastLatencyMs: Long? = null,
-    val modelContexts: Map<String, ModelContextLimits> = emptyMap()
+    val modelContexts: Map<String, ModelContextLimits> = emptyMap(),
+    val apiFormat: String = API_FORMAT_OPENAI,
+    val messagesPath: String = "/v1/messages"
 )
 
 fun ApiProfile.normalized(): ApiProfile = copy(
@@ -62,7 +64,9 @@ fun ApiProfile.normalized(): ApiProfile = copy(
     imageModel = imageModel.trim(),
     mangaAnalysisModel = mangaAnalysisModel.trim(),
     searchModel = searchModel.trim(),
-    extraHeaders = extraHeaders.lineSequence().map(String::trim).filter(String::isNotBlank).joinToString("\n")
+    extraHeaders = extraHeaders.lineSequence().map(String::trim).filter(String::isNotBlank).joinToString("\n"),
+    apiFormat = if (apiFormat == API_FORMAT_ANTHROPIC) API_FORMAT_ANTHROPIC else API_FORMAT_OPENAI,
+    messagesPath = messagesPath.trim().ifBlank { "/v1/messages" }
 )
 
 fun ApiProfile.hasValidBaseUrl(): Boolean {
@@ -217,6 +221,8 @@ class ConfigStore(context: Context) {
                     .put("imageModel", profile.imageModel)
                     .put("mangaAnalysisModel", profile.mangaAnalysisModel)
                     .put("searchModel", profile.searchModel)
+                    .put("apiFormat", profile.apiFormat)
+                    .put("messagesPath", profile.messagesPath)
                     .put("extraHeaders", profile.extraHeaders)
                     .put("lastLatencyMs", profile.lastLatencyMs)
                     .put("cachedModels", JSONArray().apply {
@@ -257,6 +263,8 @@ class ConfigStore(context: Context) {
                     mangaAnalysisModel = item.optString("mangaAnalysisModel"),
                     searchModel = item.optString("searchModel"),
                     extraHeaders = item.optString("extraHeaders"),
+                    apiFormat = item.optString("apiFormat").ifBlank { API_FORMAT_OPENAI },
+                    messagesPath = item.optString("messagesPath").ifBlank { "/v1/messages" },
                     cachedModels = decodeModels(item.optJSONArray("cachedModels")),
                     lastLatencyMs = item.optLong("lastLatencyMs").takeIf { item.has("lastLatencyMs") && !item.isNull("lastLatencyMs") }
                 ))

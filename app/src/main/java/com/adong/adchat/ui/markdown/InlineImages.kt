@@ -68,3 +68,17 @@ internal fun linkAt(text: String, index: Int): TextLink? {
     if (raw.length < "https://a".length) return null
     return TextLink(index + raw.length, raw, raw)
 }
+
+/** Plain text ends at the next emphasis token or at an http(s) address, so a link mid-paragraph is not skipped. */
+internal fun nextPlainEnd(text: String, start: Int, tokens: List<String>): Int {
+    var end = text.length
+    for (token in tokens) {
+        val at = text.indexOf(token, start)
+        if (at in start until end) end = at
+    }
+    for (scheme in listOf("https://", "http://")) {
+        val at = text.indexOf(scheme, start)
+        if (at in start until end) end = at
+    }
+    return end.coerceAtLeast(start + 1).coerceAtMost(text.length)
+}

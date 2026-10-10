@@ -333,6 +333,7 @@ class ApiRepository internal constructor(
         var firstDeltaAt: Long? = null
         var usage = TokenUsage()
         val full = StringBuilder()
+        var afterThought = false
         val reasoningTotal = StringBuilder()
         var outputComplete = false
         val generatedFiles = mutableListOf<GeneratedFileDraft>()
@@ -346,7 +347,10 @@ class ApiRepository internal constructor(
 
         suspend fun noteWebSearch(root: JSONObject) {
             when (webSearchSignal(root)) {
-                WebSearchSignal.Searching -> recordActivity(ChatToolActivity("web_search", WEB_SEARCH_TOOL, "正在搜索网页", TOOL_STATUS_RUNNING))
+                WebSearchSignal.Searching -> {
+                    recordActivity(ChatToolActivity("web_search", WEB_SEARCH_TOOL, "正在搜索网页", TOOL_STATUS_RUNNING))
+                    if (full.isNotEmpty()) afterThought = true
+                }
                 WebSearchSignal.Completed -> recordActivity(ChatToolActivity("web_search", WEB_SEARCH_TOOL, "已完成网页搜索", TOOL_STATUS_COMPLETED))
                 null -> Unit
             }
@@ -404,6 +408,14 @@ class ApiRepository internal constructor(
             var roundUsage = TokenUsage()
             val roundCitations = linkedMapOf<String, ChatCitation>()
             val toolAccumulator = ChatToolCallAccumulator()
+            suspend fun appendRound(delta: String) {
+                if (delta.isEmpty()) return
+                val piece = textAfterThought(full, delta, afterThought)
+                afterThought = false
+                roundText.append(piece)
+                full.append(piece)
+                onDelta(piece)
+            }
             try {
                 call.execute().use { response ->
                     if (!response.isSuccessful) ensureSuccess(response, response.body?.string().orEmpty())
@@ -431,13 +443,15 @@ class ApiRepository internal constructor(
                                 if (choices != null && choices.length() == 0) completed = true
                             }
                             val delta = parseStreamDelta(root)
+                            val reasoning = parseReasoningDelta(root)
                             if (delta.isNotEmpty()) {
                                 if (firstDeltaAt == null) firstDeltaAt = System.nanoTime()
-                                roundText.append(delta)
-                                full.append(delta)
-                                onDelta(delta)
+                                appendRound(delta)
                             }
-                            emitReasoning(parseReasoningDelta(root))
+                            if (reasoning.isNotBlank()) {
+                                emitReasoning(reasoning)
+                                if (delta.isEmpty() && full.isNotEmpty()) afterThought = true
+                            }
                             true
                         }
                         if (!completed) throw IOException("Streaming connection ended before completion")
@@ -452,9 +466,11 @@ class ApiRepository internal constructor(
                         val result = runCatching { parseMessageContent(root) }.getOrDefault("")
                         if (result.isNotEmpty()) {
                             if (firstDeltaAt == null) firstDeltaAt = System.nanoTime()
-                            roundText.append(result); full.append(result); onDelta(result)
+                            appendRound(result)
                         }
-                        emitReasoning(parseReasoningDelta(root))
+                        val reasoning = parseReasoningDelta(root)
+                        emitReasoning(reasoning)
+                        if (reasoning.isNotBlank() && result.isEmpty() && full.isNotEmpty()) afterThought = true
                         roundUsage = parseUsage(root)
                     }
                 }
@@ -477,6 +493,7 @@ class ApiRepository internal constructor(
             val forceSkill = skillLoadingEnabled && requireSkillLoad && roundIndex == 0
             val forceNoTools = forceNoToolsNextRound
             forceNoToolsNextRound = false
+            if (roundIndex > 0 && full.isNotEmpty()) afterThought = true
             val round = executeRound(forceSkill, forceNoTools)
             if (forceSkill && round.toolCalls.none { it.name == LOAD_SKILL_TOOL }) {
                 throw IllegalStateException("模型未执行强制 load_skill 工具调用；Aster 不会伪装 Skill 已加载")
@@ -617,6 +634,7 @@ class ApiRepository internal constructor(
         var firstDeltaAt: Long? = null
         var usage = TokenUsage()
         val full = StringBuilder()
+        var afterThought = false
         val reasoningTotal = StringBuilder()
         var outputComplete = false
         val generatedFiles = mutableListOf<GeneratedFileDraft>()
@@ -691,6 +709,14 @@ class ApiRepository internal constructor(
             var usedWebSearch = false
             val roundCitations = linkedMapOf<String, ChatCitation>()
             val toolAccumulator = ResponsesToolCallAccumulator()
+            suspend fun appendRound(delta: String) {
+                if (delta.isEmpty()) return
+                val piece = textAfterThought(full, delta, afterThought)
+                afterThought = false
+                roundText.append(piece)
+                full.append(piece)
+                onDelta(piece)
+            }
             try {
                 call.execute().use { response ->
                     if (!response.isSuccessful) ensureSuccess(response, response.body?.string().orEmpty())
@@ -712,16 +738,20 @@ class ApiRepository internal constructor(
                                     val delta = root.optString("delta")
                                     if (delta.isNotEmpty()) {
                                         if (firstDeltaAt == null) firstDeltaAt = System.nanoTime()
-                                        roundText.append(delta); full.append(delta); onDelta(delta)
+                                        appendRound(delta)
                                     }
                                 }
                                 // 思考增量：官方为 response.reasoning_summary_text.delta，
                                 // 部分兼容网关用 response.reasoning_text.delta 或自定义 reasoning.*.delta。
-                                "response.reasoning_summary_text.delta", "response.reasoning_text.delta" ->
-                                    emitReasoning(root.optString("delta").ifBlank { reasoningEventText(root) })
+                                "response.reasoning_summary_text.delta", "response.reasoning_text.delta" -> {
+                                    val thought = root.optString("delta").ifBlank { reasoningEventText(root) }
+                                    emitReasoning(thought)
+                                    if (thought.isNotBlank() && full.isNotEmpty()) afterThought = true
+                                }
                                 "response.web_search_call.in_progress", "response.web_search_call.searching" -> {
                                     usedWebSearch = true
                                     recordActivity(ChatToolActivity("web_search", WEB_SEARCH_TOOL, "正在搜索网页", TOOL_STATUS_RUNNING))
+                                    if (full.isNotEmpty()) afterThought = true
                                 }
                                 "response.web_search_call.completed" -> {
                                     usedWebSearch = true
@@ -740,7 +770,9 @@ class ApiRepository internal constructor(
                                 else -> {
                                     val type = root.optString("type")
                                     if (type.contains("reasoning", ignoreCase = true) && type.endsWith(".delta")) {
-                                        emitReasoning(reasoningEventText(root))
+                                        val thought = reasoningEventText(root)
+                                        emitReasoning(thought)
+                                        if (thought.isNotBlank() && full.isNotEmpty()) afterThought = true
                                     }
                                 }
                             }
@@ -759,9 +791,11 @@ class ApiRepository internal constructor(
                         val result = runCatching { parseResponsesText(root) }.getOrDefault("")
                         if (result.isNotEmpty()) {
                             if (firstDeltaAt == null) firstDeltaAt = System.nanoTime()
-                            roundText.append(result); full.append(result); onDelta(result)
+                            appendRound(result)
                         }
-                        emitReasoning(parseResponsesReasoning(root))
+                        val reasoning = parseResponsesReasoning(root)
+                        emitReasoning(reasoning)
+                        if (reasoning.isNotBlank() && result.isEmpty() && full.isNotEmpty()) afterThought = true
                         roundUsage = parseUsage(root)
                     }
                 }
@@ -784,6 +818,7 @@ class ApiRepository internal constructor(
             val forceSkill = skillLoadingEnabled && requireSkillLoad && toolRound == 0
             val forceNoTools = forceNoToolsNextRound
             forceNoToolsNextRound = false
+            if (toolRound > 0 && full.isNotEmpty()) afterThought = true
             val round = executeRound(requestInput, previousResponseId, forceSkill, forceNoTools)
             if (forceSkill && round.toolCalls.none { it.name == LOAD_SKILL_TOOL }) {
                 throw IllegalStateException("模型未执行强制 load_skill 工具调用；Aster 不会伪装 Skill 已加载")
@@ -938,23 +973,42 @@ class ApiRepository internal constructor(
 
 SEARCH QUERY:
 $query"""
-        val body = JSONObject()
-            .put("model", backend.model)
-            .put("input", input)
-            .put("tools", JSONArray().put(JSONObject().put("type", toolType)))
-        if (normalizedSource == "web") {
-            body.put("include", JSONArray().put("web_search_call.action.sources"))
+        val anthropic = backend.profile.apiFormat == API_FORMAT_ANTHROPIC
+        if (anthropic && normalizedSource == "x") throw IllegalStateException("Anthropic 搜索后端不支持 X Search")
+        val body = if (anthropic) {
+            anthropicWebSearchRequest(backend.model, input)
+        } else {
+            JSONObject()
+                .put("model", backend.model)
+                .put("input", input)
+                .put("tools", JSONArray().put(JSONObject().put("type", toolType)))
+                .apply {
+                    if (normalizedSource == "web") put("include", JSONArray().put("web_search_call.action.sources"))
+                }
         }
-        val request = requestBuilder(backend.profile, resolveUrl(backend.profile.baseUrl, backend.profile.responsesPath))
-            .post(body.toString().toRequestBody(jsonMedia))
-            .build()
+        val path = if (anthropic) backend.profile.messagesPath else backend.profile.responsesPath
+        val searchCall = requestBuilder(backend.profile, resolveUrl(backend.profile.baseUrl, path))
+        if (anthropic && backend.profile.apiKey.isNotBlank()) {
+            searchCall.header("x-api-key", backend.profile.apiKey.trim())
+            searchCall.header("anthropic-version", "2023-06-01")
+        }
+        val request = searchCall.post(body.toString().toRequestBody(jsonMedia)).build()
         val raw = executeTextCall(client.newCall(request))
         val root = runCatching { JSONObject(raw) }.getOrElse { throw IllegalStateException("联网搜索后端返回的不是有效 JSON") }
-        require(responseUsedDelegatedSearch(root, normalizedSource)) {
-            "联网搜索后端返回了响应，但未实际执行 ${if (normalizedSource == "x") "X Search" else "Web Search"}"
+        val research: String
+        val sources: List<ChatCitation>
+        if (anthropic) {
+            require(anthropicSearchPerformed(root)) { "联网搜索后端返回了响应，但未实际执行 Web Search" }
+            val parsed = parseAnthropicSearch(root)
+            research = parsed.first
+            sources = parsed.second
+        } else {
+            require(responseUsedDelegatedSearch(root, normalizedSource)) {
+                "联网搜索后端返回了响应，但未实际执行 ${if (normalizedSource == "x") "X Search" else "Web Search"}"
+            }
+            research = parseResponsesText(root)
+            sources = parseServerSideSearchSources(root)
         }
-        val research = parseResponsesText(root)
-        val sources = parseServerSideSearchSources(root)
         DelegatedSearchResult(
             output = delegatedSearchToolOutput(query, normalizedSource, backend.model, research, sources),
             citations = sources,

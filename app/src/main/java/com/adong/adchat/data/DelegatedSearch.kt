@@ -89,3 +89,59 @@ internal fun delegatedSearchToolOutput(
     })
     .put("instruction", "Use the research above as tool evidence. Cite or describe only claims supported by it. The search backend is not the final-answer model.")
     .toString()
+
+const val API_FORMAT_OPENAI = "openai"
+const val API_FORMAT_ANTHROPIC = "anthropic"
+
+internal fun anthropicWebSearchRequest(model: String, prompt: String): JSONObject = JSONObject()
+    .put("model", model)
+    .put("max_tokens", 4096)
+    .put("tools", JSONArray().put(JSONObject()
+        .put("type", "web_search_20250305")
+        .put("name", "web_search")
+        .put("max_uses", 5)))
+    .put("messages", JSONArray().put(JSONObject().put("role", "user").put("content", prompt)))
+
+internal fun anthropicSearchPerformed(root: JSONObject): Boolean {
+    val content = root.optJSONArray("content") ?: return false
+    for (index in 0 until content.length()) {
+        val block = content.optJSONObject(index) ?: continue
+        when (block.optString("type")) {
+            "server_tool_use" -> if (block.optString("name") == "web_search") return true
+            "web_search_tool_result" -> return true
+        }
+    }
+    return false
+}
+
+internal fun parseAnthropicSearch(root: JSONObject): Pair<String, List<ChatCitation>> {
+    val content = root.optJSONArray("content") ?: return "" to emptyList()
+    val text = StringBuilder()
+    val citations = linkedMapOf<String, ChatCitation>()
+    for (index in 0 until content.length()) {
+        val block = content.optJSONObject(index) ?: continue
+        when (block.optString("type")) {
+            "text" -> {
+                text.append(block.optString("text"))
+                val cites = block.optJSONArray("citations") ?: continue
+                for (citeIndex in 0 until cites.length()) {
+                    val cite = cites.optJSONObject(citeIndex) ?: continue
+                    val url = cite.optString("url").trim()
+                    if (url.isBlank()) continue
+                    citations.putIfAbsent(url, ChatCitation(cite.optString("title").ifBlank { url }, url))
+                }
+            }
+            "web_search_tool_result" -> {
+                val results = block.optJSONArray("content") ?: continue
+                for (resultIndex in 0 until results.length()) {
+                    val item = results.optJSONObject(resultIndex) ?: continue
+                    if (item.optString("type") != "web_search_result") continue
+                    val url = item.optString("url").trim()
+                    if (url.isBlank()) continue
+                    citations.putIfAbsent(url, ChatCitation(item.optString("title").ifBlank { url }, url))
+                }
+            }
+        }
+    }
+    return text.toString().trim() to citations.values.toList()
+}

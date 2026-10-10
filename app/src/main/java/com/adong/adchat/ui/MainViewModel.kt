@@ -625,6 +625,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                         .put("imageModel", profile.imageModel)
                         .put("mangaAnalysisModel", profile.mangaAnalysisModel)
                         .put("searchModel", profile.searchModel)
+                        .put("apiFormat", profile.apiFormat)
+                        .put("messagesPath", profile.messagesPath)
                         .put("extraHeaders", profile.extraHeaders)
                     )
                 }
@@ -663,7 +665,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     imageModel = item.optString("imageModel"),
                     mangaAnalysisModel = item.optString("mangaAnalysisModel"),
                     searchModel = item.optString("searchModel"),
-                    extraHeaders = item.optString("extraHeaders")
+                    extraHeaders = item.optString("extraHeaders"),
+                    apiFormat = item.optString("apiFormat").ifBlank { com.adong.adchat.data.API_FORMAT_OPENAI },
+                    messagesPath = item.optString("messagesPath").ifBlank { "/v1/messages" }
                 ))
             }
         }

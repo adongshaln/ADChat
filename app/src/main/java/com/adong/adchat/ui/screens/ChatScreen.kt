@@ -21,6 +21,8 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
@@ -46,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
@@ -78,7 +81,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.adong.adchat.data.ChatImageAttachment
+import com.adong.adchat.data.chatImageHeaders
+import com.adong.adchat.data.downloadChatImage
 import com.adong.adchat.data.ReasoningPolicy
 import com.adong.adchat.data.usesResponses
 import com.adong.adchat.data.ChatFileAttachment
@@ -115,6 +122,7 @@ import com.adong.adchat.ui.markdown.joinProseLine
 import com.adong.adchat.ui.markdown.parseMarkdownTableAt
 import com.adong.adchat.ui.markdown.readingSpans
 import com.adong.adchat.ui.markdown.splitInlineImages
+import com.adong.adchat.ui.markdown.nextPlainEnd
 import com.adong.adchat.ui.markdown.InlinePiece
 import com.adong.adchat.ui.markdown.ReadingSpan
 import com.adong.adchat.ui.theme.*
@@ -1384,36 +1392,80 @@ private fun MarkdownTextBlock(raw: String, showCursor: Boolean, error: Boolean) 
 @Composable
 private fun ChatRemoteImage(url: String, alt: String) {
     val context = LocalContext.current
-    var failed by remember(url) { mutableStateOf(false) }
+    var bytes by remember(url) { mutableStateOf<ByteArray?>(null) }
+    var directFailed by remember(url) { mutableStateOf(false) }
+    var downloadFailed by remember(url) { mutableStateOf(false) }
     var pixels by remember(url) { mutableStateOf(0 to 0) }
-    if (failed) {
-        Text(url, color = Accent, style = MaterialTheme.typography.bodyMedium)
-        return
+    var zoomed by remember(url) { mutableStateOf(false) }
+    LaunchedEffect(url, directFailed) {
+        if (!directFailed || bytes != null || downloadFailed) return@LaunchedEffect
+        val loaded = withContext(Dispatchers.IO) { runCatching { downloadChatImage(url) }.getOrNull() }
+        if (loaded != null) bytes = loaded else downloadFailed = true
     }
-    val fitted = fittedImageDp(pixels.first, pixels.second, maxWidth = 440f, maxHeight = 480f)
-    val frame = if (fitted == null) Modifier.size(160.dp) else Modifier.size(fitted.first.dp, fitted.second.dp)
-    AsyncImage(
-        model = ImageRequest.Builder(context)
-            .data(url)
-            .addHeader(
-                "User-Agent",
-                "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+    val shown = bytes ?: url
+    val request = ImageRequest.Builder(context).data(shown).crossfade(bytes == null)
+    if (bytes == null) chatImageHeaders(url).forEach { (name, value) -> request.addHeader(name, value) }
+    val model = request.build()
+    if (zoomed) ZoomedChatImage(model, alt.ifBlank { "图片" }) { zoomed = false }
+    when {
+        bytes == null && directFailed && downloadFailed -> {
+            val confirm = LocalConfirmLink.current
+            Text(
+                url,
+                color = NameInk,
+                textDecoration = TextDecoration.Underline,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.clickable { confirm(url) }
             )
-            .addHeader("Accept", "image/avif,image/webp,image/*,*/*;q=0.8")
-            .crossfade(true)
-            .build(),
-        contentDescription = alt.ifBlank { "图片" },
-        modifier = frame.clip(RoundedCornerShape(14.dp)),
-        contentScale = ContentScale.Fit,
-        onSuccess = { state ->
-            val width = state.painter.intrinsicSize.width
-            val height = state.painter.intrinsicSize.height
-            if (width.isFinite() && height.isFinite() && width > 0f && height > 0f) {
-                pixels = width.toInt() to height.toInt()
+        }
+        bytes == null && directFailed -> Text("正在下载图片…", color = MutedInk, style = MaterialTheme.typography.labelLarge)
+        else -> {
+            val fitted = fittedImageDp(pixels.first, pixels.second, maxWidth = 440f, maxHeight = 480f)
+            val frame = if (fitted == null) Modifier.size(160.dp) else Modifier.size(fitted.first.dp, fitted.second.dp)
+            AsyncImage(
+                model = model,
+                contentDescription = alt.ifBlank { "图片" },
+                modifier = frame.clip(RoundedCornerShape(14.dp)).clickable { zoomed = true },
+                contentScale = ContentScale.Fit,
+                onSuccess = { state ->
+                    val width = state.painter.intrinsicSize.width
+                    val height = state.painter.intrinsicSize.height
+                    if (width.isFinite() && height.isFinite() && width > 0f && height > 0f) {
+                        pixels = width.toInt() to height.toInt()
+                    }
+                },
+                onError = { if (bytes == null) directFailed = true }
+            )
+        }
+    }
+}
+
+@Composable
+private fun ZoomedChatImage(model: ImageRequest, description: String, onDismiss: () -> Unit) {
+    var scale by remember { mutableFloatStateOf(1f) }
+    var offset by remember { mutableStateOf(Offset.Zero) }
+    val transform = rememberTransformableState { zoom, pan, _ ->
+        scale = (scale * zoom).coerceIn(1f, 5f)
+        offset = if (scale <= 1f) Offset.Zero else offset + pan
+    }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = .94f)), contentAlignment = Alignment.Center) {
+            AsyncImage(
+                model = model,
+                contentDescription = description,
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxWidth().graphicsLayer {
+                    scaleX = scale
+                    scaleY = scale
+                    translationX = offset.x
+                    translationY = offset.y
+                }.transformable(transform)
+            )
+            TextButton(onClick = onDismiss, modifier = Modifier.align(Alignment.TopEnd).padding(8.dp)) {
+                Text("关闭", color = Color.White)
             }
-        },
-        onError = { failed = true }
-    )
+        }
+    }
 }
 
 @Composable
@@ -1908,9 +1960,9 @@ private fun basicInlineMarkdown(text: String): AnnotatedString = buildAnnotatedS
                 append(token); index += token.length
             }
         } else {
-            val next = tokens.map { text.indexOf(it, index) }.filter { it >= 0 }.minOrNull() ?: text.length
-            val target = next.coerceAtLeast(index + 1)
-            append(text.substring(index, target)); index = target
+            val target = nextPlainEnd(text, index, tokens)
+            append(text.substring(index, target))
+            index = target
         }
     }
 }
