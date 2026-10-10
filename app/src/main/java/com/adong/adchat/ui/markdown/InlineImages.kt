@@ -16,14 +16,18 @@ private data class ImageHit(val start: Int, val end: Int, val url: String, val a
 
 /** Pulls real image addresses out of prose so they can be shown instead of left as raw markup. */
 internal fun splitInlineImages(text: String): List<InlinePiece> {
+    val source = text.replace(Regex("""(https?://\S+)\s*\n\s*(\S+)""")) { match ->
+        val joined = match.groupValues[1] + match.groupValues[2]
+        if (BARE_IMAGE.containsMatchIn(joined)) joined else match.value
+    }
     val hits = mutableListOf<ImageHit>()
-    MARKDOWN_IMAGE.findAll(text).forEach { match ->
+    MARKDOWN_IMAGE.findAll(source).forEach { match ->
         hits += ImageHit(match.range.first, match.range.last + 1, match.groupValues[2], match.groupValues[1])
     }
-    WRAPPED_IMAGE.findAll(text).forEach { match ->
+    WRAPPED_IMAGE.findAll(source).forEach { match ->
         hits += ImageHit(match.range.first, match.range.last + 1, match.groupValues[1], "")
     }
-    BARE_IMAGE.findAll(text).forEach { match ->
+    BARE_IMAGE.findAll(source).forEach { match ->
         hits += ImageHit(match.range.first, match.range.last + 1, match.value, "")
     }
     val ordered = hits.sortedWith(compareBy<ImageHit> { it.start }.thenByDescending { it.end })
@@ -33,15 +37,15 @@ internal fun splitInlineImages(text: String): List<InlinePiece> {
         taken += hit
     }
     taken.sortBy { it.start }
-    if (taken.isEmpty()) return listOf(InlinePiece.Prose(text))
+    if (taken.isEmpty()) return listOf(InlinePiece.Prose(source))
     val pieces = mutableListOf<InlinePiece>()
     var cursor = 0
     taken.forEach { hit ->
-        if (hit.start > cursor) pieces += InlinePiece.Prose(text.substring(cursor, hit.start))
+        if (hit.start > cursor) pieces += InlinePiece.Prose(source.substring(cursor, hit.start))
         pieces += InlinePiece.RemoteImage(hit.url, hit.alt)
         cursor = hit.end
     }
-    if (cursor < text.length) pieces += InlinePiece.Prose(text.substring(cursor))
+    if (cursor < source.length) pieces += InlinePiece.Prose(source.substring(cursor))
     return pieces.filterNot { it is InlinePiece.Prose && it.text.isBlank() }
 }
 

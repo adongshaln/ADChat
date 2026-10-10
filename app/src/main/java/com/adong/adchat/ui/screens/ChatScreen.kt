@@ -91,6 +91,7 @@ import com.adong.adchat.ui.components.AdSelectionSheet
 import com.adong.adchat.ui.components.QuickModelSwitcher
 import com.adong.adchat.ui.components.RouteKind
 import com.adong.adchat.data.ASK_USER_CUSTOM_OPTION
+import com.adong.adchat.data.ASK_USER_TOOL
 import com.adong.adchat.data.AskUserPrompt
 import com.adong.adchat.ui.markdown.MarkdownTable
 import com.adong.adchat.ui.markdown.MarkdownTableAlignment
@@ -780,15 +781,18 @@ private fun StreamRecoveryStatus(
 @Composable
 private fun ToolActivitySummary(activities: List<ChatToolActivity>) {
     var expanded by remember(activities.size) { mutableStateOf(false) }
-    val running = activities.any { it.status == TOOL_STATUS_RUNNING }
-    val failed = activities.any { it.status == TOOL_STATUS_FAILED }
+    val waiting = latest.name == ASK_USER_TOOL && latest.status == TOOL_STATUS_RUNNING
+    val running = !waiting && activities.any { it.status == TOOL_STATUS_RUNNING }
+    val failed = !waiting && activities.any { it.status == TOOL_STATUS_FAILED }
     val latest = activities.last()
     val tint = when {
+        waiting -> Sage
         failed -> Danger
         running -> Accent
         else -> Sage
     }
     val label = when {
+        waiting -> "请从下面的选项里选一个"
         running -> latest.label
         failed -> latest.label
         activities.size == 1 -> latest.label
@@ -799,13 +803,14 @@ private fun ToolActivitySummary(activities: List<ChatToolActivity>) {
     Surface(
         onClick = { if (activities.size > 1) expanded = !expanded },
         color = when {
+            waiting -> SageSoft
             failed -> DangerSoft
             running -> AccentSoft.copy(alpha = .72f)
             else -> Color.Transparent
         },
         contentColor = Ink,
         shape = RoundedCornerShape(13.dp),
-        border = if (running || failed) null else BorderStroke(1.dp, Hairline.copy(alpha = .8f)),
+        border = if (waiting || running || failed) null else BorderStroke(1.dp, Hairline.copy(alpha = .8f)),
         // 高度动画只留 AnimatedVisibility 一层；工具状态在流式期间会反复刷新，
         // 再叠 animateContentSize 会让卡片高度持续微动画，和正文滚动叠加成噪声。
         modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp)
@@ -813,6 +818,7 @@ private fun ToolActivitySummary(activities: List<ChatToolActivity>) {
         Column(Modifier.padding(horizontal = 11.dp, vertical = 9.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 when {
+                    waiting -> Icon(Icons.Rounded.HelpOutline, null, Modifier.size(18.dp), tint = Sage)
                     running -> CircularProgressIndicator(
                         modifier = Modifier.size(17.dp),
                         color = tint,
@@ -1364,7 +1370,15 @@ private fun ChatRemoteImage(url: String, alt: String) {
         return
     }
     AsyncImage(
-        model = ImageRequest.Builder(context).data(url).crossfade(true).build(),
+        model = ImageRequest.Builder(context)
+            .data(url)
+            .addHeader(
+                "User-Agent",
+                "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
+            )
+            .addHeader("Accept", "image/avif,image/webp,image/*,*/*;q=0.8")
+            .crossfade(true)
+            .build(),
         contentDescription = alt.ifBlank { "图片" },
         modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).clip(RoundedCornerShape(14.dp)),
         contentScale = ContentScale.Fit,
