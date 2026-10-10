@@ -58,7 +58,6 @@ internal fun splitInlineImages(text: String): List<InlinePiece> {
         taken += hit
     }
     taken.sortBy { it.start }
-    if (taken.isEmpty()) return listOf(InlinePiece.Prose(source))
     val pieces = mutableListOf<InlinePiece>()
     var cursor = 0
     taken.forEach { hit ->
