@@ -781,10 +781,10 @@ private fun StreamRecoveryStatus(
 @Composable
 private fun ToolActivitySummary(activities: List<ChatToolActivity>) {
     var expanded by remember(activities.size) { mutableStateOf(false) }
+    val latest = activities.last()
     val waiting = latest.name == ASK_USER_TOOL && latest.status == TOOL_STATUS_RUNNING
     val running = !waiting && activities.any { it.status == TOOL_STATUS_RUNNING }
     val failed = !waiting && activities.any { it.status == TOOL_STATUS_FAILED }
-    val latest = activities.last()
     val tint = when {
         waiting -> Sage
         failed -> Danger
