@@ -55,6 +55,7 @@ internal class StoryDatabase(context: Context) : SQLiteOpenHelper(
                 9 -> { StorySchema.MIGRATION_9_TO_10_STATEMENTS.forEach(db::execSQL); version = 10 }
                 10 -> { StorySchema.MIGRATION_10_TO_11_STATEMENTS.forEach(db::execSQL); version = 11 }
                 11 -> { StorySchema.MIGRATION_11_TO_12_STATEMENTS.forEach(db::execSQL); version = 12 }
+                12 -> { StorySchema.MIGRATION_12_TO_13_STATEMENTS.forEach(db::execSQL); version = 13 }
                 else -> error("No story database migration from version $version to $newVersion")
             }
         }
@@ -62,7 +63,7 @@ internal class StoryDatabase(context: Context) : SQLiteOpenHelper(
 
     companion object {
         const val DATABASE_NAME = "aster_story.db"
-        const val DATABASE_VERSION = 12
+        const val DATABASE_VERSION = 13
     }
 }
 
@@ -225,6 +226,11 @@ internal object StorySchema {
         "ALTER TABLE $REVISIONS ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]'",
         "ALTER TABLE $WORKSPACE_STATE ADD COLUMN attachments_json TEXT NOT NULL DEFAULT '[]'"
     )
+    val MIGRATION_12_TO_13_STATEMENTS = listOf(
+        "ALTER TABLE $STORIES ADD COLUMN setup_phase TEXT NOT NULL DEFAULT 'prose'",
+        "ALTER TABLE $STORIES ADD COLUMN char_card_json TEXT NOT NULL DEFAULT ''",
+        "ALTER TABLE $STORIES ADD COLUMN user_persona TEXT NOT NULL DEFAULT ''"
+    )
     val CREATE_STATEMENTS: List<String> = listOf(
         """
         CREATE TABLE $STORIES (
@@ -236,7 +242,10 @@ internal object StorySchema {
             memory_version INTEGER NOT NULL DEFAULT 0,
             automatic_memory_enabled INTEGER NOT NULL DEFAULT 1,
             created_at INTEGER NOT NULL,
-            updated_at INTEGER NOT NULL
+            updated_at INTEGER NOT NULL,
+            setup_phase TEXT NOT NULL DEFAULT 'prose',
+            char_card_json TEXT NOT NULL DEFAULT '',
+            user_persona TEXT NOT NULL DEFAULT ''
         )
         """.trimIndent(),
         """

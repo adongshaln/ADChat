@@ -94,6 +94,7 @@ fun StoryScreen(
         StoryHeader(
             story = story,
             workspace = storyVm.activeWorkspace,
+            setupPhase = story.setupPhase,
             profile = profile,
             onOpenDrawer = onOpenDrawer,
             onStoryPicker = { showStoryPicker = true },
@@ -254,6 +255,7 @@ fun StoryScreen(
 private fun StoryHeader(
     story: Story,
     workspace: StoryWorkspace,
+    setupPhase: com.adong.adchat.data.story.StorySetupPhase,
     profile: ApiProfile?,
     onOpenDrawer: () -> Unit,
     onStoryPicker: () -> Unit,
@@ -280,8 +282,18 @@ private fun StoryHeader(
         AsterSegmentedControl(
             labels = listOf("讨论", "正文"),
             selectedIndex = StoryWorkspace.entries.indexOf(workspace),
-            onSelect = { onWorkspace(StoryWorkspace.entries[it]) },
+            onSelect = { index ->
+                val next = StoryWorkspace.entries[index]
+                if (next == StoryWorkspace.Prose && setupPhase != com.adong.adchat.data.story.StorySetupPhase.Prose) return@AsterSegmentedControl
+                onWorkspace(next)
+            },
             modifier = Modifier.padding(start = 48.dp, end = 48.dp, top = 2.dp, bottom = 4.dp)
+        )
+        Text(
+            "预设 · $tavernPresetName",
+            color = MutedInk,
+            style = MaterialTheme.typography.labelMedium,
+            modifier = Modifier.padding(start = 22.dp, bottom = 4.dp).clickable(onClick = onTavernPresets)
         )
     }
     if (showActions) AdActionSheet(
@@ -1264,6 +1276,22 @@ private fun StoryWorkspaceContent(
             modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = (composerHeight - 24.dp).coerceAtLeast(0.dp))
         )
 
+        StorySetupBar(
+            phase = story.setupPhase,
+            charCardJson = story.charCardJson,
+            userPersona = story.userPersona,
+            identity = storyVm.identityDraft,
+            busy = storyVm.setupBusy,
+            error = storyVm.setupError,
+            profile = profile,
+            onIdentity = storyVm::updateIdentityDraft,
+            onEndDiscussion = storyVm::endDiscussion,
+            onConfirmChar = storyVm::confirmCharCard,
+            onRegenerateChar = storyVm::regenerateCharCard,
+            onSubmitIdentity = storyVm::submitIdentity,
+            onConfirmPersona = storyVm::confirmPersona,
+            onRegeneratePersona = storyVm::regeneratePersona
+        )
         StoryComposer(
             skillScope = "aster-story-${storyVm.activeStoryId}-${workspace.dbValue}",
             value = storyVm.draft(workspace),

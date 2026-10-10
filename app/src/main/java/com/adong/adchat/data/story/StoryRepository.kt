@@ -43,6 +43,9 @@ class StoryRepository(context: Context) : AutoCloseable {
                     put("automatic_memory_enabled", if (story.automaticMemoryEnabled) 1 else 0)
                     put("created_at", story.createdAt)
                     put("updated_at", story.updatedAt)
+                    put("setup_phase", StorySetupPhase.Discussion.dbValue)
+                    put("char_card_json", "")
+                    put("user_persona", "")
                 }
             )
             db.insertOrThrow(
@@ -71,7 +74,28 @@ class StoryRepository(context: Context) : AutoCloseable {
                 )
             }
         }
-        return story
+        return story.copy(setupPhase = StorySetupPhase.Discussion)
+    }
+
+    fun updateStorySetup(
+        storyId: String,
+        phase: StorySetupPhase,
+        charCardJson: String? = null,
+        userPersona: String? = null
+    ): Story {
+        val now = System.currentTimeMillis()
+        helper.writableDatabase.update(
+            StorySchema.STORIES,
+            ContentValues().apply {
+                put("setup_phase", phase.dbValue)
+                put("updated_at", now)
+                if (charCardJson != null) put("char_card_json", charCardJson)
+                if (userPersona != null) put("user_persona", userPersona)
+            },
+            "id = ?",
+            arrayOf(storyId)
+        )
+        return getStory(storyId) ?: error("故事不存在")
     }
 
     fun listStories(): List<Story> = helper.readableDatabase.query(
@@ -759,7 +783,10 @@ class StoryRepository(context: Context) : AutoCloseable {
         memoryVersion = long("memory_version"),
         automaticMemoryEnabled = int("automatic_memory_enabled") != 0,
         createdAt = long("created_at"),
-        updatedAt = long("updated_at")
+        updatedAt = long("updated_at"),
+        setupPhase = StorySetupPhase.fromDb(string("setup_phase")),
+        charCardJson = string("char_card_json"),
+        userPersona = string("user_persona")
     )
 
     private fun Cursor.toRevision(): StoryMessageRevision = StoryMessageRevision(

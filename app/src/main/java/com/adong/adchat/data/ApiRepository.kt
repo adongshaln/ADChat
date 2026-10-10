@@ -984,6 +984,30 @@ class ApiRepository internal constructor(
             sanitizeConversationTitle(text).ifBlank { throw IllegalStateException("标题为空") }
         }
 
+    suspend fun completePlain(profile: ApiProfile, model: String, instruction: String, user: String): String =
+        withContext(Dispatchers.IO) {
+            validateProfile(profile)
+            require(model.isNotBlank()) { "Model is required" }
+            val quietEffort = ReasoningPolicy.choices(model).firstOrNull { it.id == "low" || it.id == "none" || it.id == "off" }?.id
+                ?: ReasoningPolicy.DEFAULT
+            val quietProfile = profile.copy(reasoningEffort = quietEffort)
+            val responsesApi = quietProfile.usesResponses(model)
+            val body = if (responsesApi) {
+                JSONObject().put("model", model).put("instructions", instruction).put("input", user).put("max_output_tokens", 4096)
+            } else {
+                JSONObject().put("model", model).put("max_tokens", 4096).put("messages", JSONArray()
+                    .put(JSONObject().put("role", "system").put("content", instruction))
+                    .put(JSONObject().put("role", "user").put("content", user)))
+            }
+            applyReasoningPolicy(body, quietProfile, model, responsesApi)
+            val path = if (responsesApi) quietProfile.responsesPath else quietProfile.chatPath
+            val request = requestBuilder(quietProfile, resolveUrl(quietProfile.baseUrl, path))
+                .post(body.toString().toRequestBody(jsonMedia)).build()
+            val raw = executeTextCall(client.newCall(request))
+            val root = runCatching { JSONObject(raw) }.getOrElse { throw IllegalStateException("设定接口返回的不是有效 JSON") }
+            if (responsesApi) parseResponsesText(root) else parseMessageContent(root)
+        }
+
     private suspend fun executeDelegatedSearch(
         backend: SearchBackendConfig,
         callId: String,

@@ -38,6 +38,11 @@ import com.adong.adchat.data.story.StoryMessageRevision
 import com.adong.adchat.data.story.StoryMessageWithRevision
 import com.adong.adchat.data.story.StoryRepository
 import com.adong.adchat.data.story.StoryRevisionState
+import com.adong.adchat.data.story.STORY_CHAR_CARD_PROMPT
+import com.adong.adchat.data.story.STORY_PERSONA_PROMPT
+import com.adong.adchat.data.story.StoryCharacterCard
+import com.adong.adchat.data.story.StorySetupPhase
+import com.adong.adchat.data.story.parseUserPersona
 import com.adong.adchat.data.story.StoryStopCleanup
 import com.adong.adchat.data.story.StoryWorkspace
 import com.adong.adchat.data.story.StoryWorkspaceState
@@ -330,8 +335,118 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun switchWorkspace(workspace: StoryWorkspace) {
+        if (workspace == StoryWorkspace.Prose && activeStory?.setupPhase != StorySetupPhase.Prose) return
         activeWorkspace = workspace
         errors.remove(workspace)
+    }
+
+    var setupBusy by mutableStateOf(false)
+        private set
+    var setupError by mutableStateOf<String?>(null)
+        private set
+    var identityDraft by mutableStateOf("")
+        private set
+
+    fun updateIdentityDraft(value: String) { identityDraft = value }
+    fun clearSetupError() { setupError = null }
+
+    fun endDiscussion(profile: ApiProfile) = generateCharCard(profile)
+
+    fun regenerateCharCard(profile: ApiProfile) = generateCharCard(profile)
+
+    private fun generateCharCard(profile: ApiProfile) {
+        val story = activeStory ?: return
+        if (setupBusy) return
+        if (story.setupPhase != StorySetupPhase.Discussion && story.setupPhase != StorySetupPhase.CharReview) return
+        val transcript = discussionTranscript()
+        if (transcript.isBlank()) {
+            setupError = "先讨论故事设定，再结束。"
+            return
+        }
+        setupBusy = true
+        setupError = null
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val raw = api.completePlain(profile, story.model.ifBlank { profile.chatModel }, STORY_CHAR_CARD_PROMPT, transcript)
+                val card = StoryCharacterCard.parse(raw)
+                val updated = store.updateStorySetup(story.id, StorySetupPhase.CharReview, charCardJson = card.toJson())
+                withContext(Dispatchers.Main) { replaceStory(updated) }
+            }.onFailure { error ->
+                withContext(Dispatchers.Main) { setupError = error.message ?: "角色卡没有生成" }
+            }
+            withContext(Dispatchers.Main) { setupBusy = false }
+        }
+    }
+
+    fun confirmCharCard(card: StoryCharacterCard) {
+        val story = activeStory ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            val updated = store.updateStorySetup(story.id, StorySetupPhase.Identity, charCardJson = card.toJson())
+            withContext(Dispatchers.Main) {
+                replaceStory(updated)
+                identityDraft = ""
+            }
+        }
+    }
+
+    fun submitIdentity(profile: ApiProfile) = generatePersona(profile)
+
+    fun regeneratePersona(profile: ApiProfile) = generatePersona(profile)
+
+    private fun generatePersona(profile: ApiProfile) {
+        val story = activeStory ?: return
+        if (setupBusy) return
+        val identity = identityDraft.trim()
+        if (identity.isBlank()) {
+            setupError = "先写下你要担任的身份。"
+            return
+        }
+        setupBusy = true
+        setupError = null
+        val transcript = discussionTranscript()
+        val charCard = story.charCardJson
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val raw = api.completePlain(
+                    profile,
+                    story.model.ifBlank { profile.chatModel },
+                    STORY_PERSONA_PROMPT,
+                    "对方角色卡：\n$charCard\n\n讨论：\n$transcript\n\n用户要担任：$identity"
+                )
+                val persona = parseUserPersona(raw)
+                val updated = store.updateStorySetup(story.id, StorySetupPhase.PersonaReview, userPersona = persona)
+                withContext(Dispatchers.Main) { replaceStory(updated) }
+            }.onFailure { error ->
+                withContext(Dispatchers.Main) { setupError = error.message ?: "身份卡没有生成" }
+            }
+            withContext(Dispatchers.Main) { setupBusy = false }
+        }
+    }
+
+    fun confirmPersona(persona: String) {
+        val story = activeStory ?: return
+        val text = persona.trim()
+        if (text.isBlank()) {
+            setupError = "身份卡不能是空的。"
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val updated = store.updateStorySetup(story.id, StorySetupPhase.Prose, userPersona = text)
+            withContext(Dispatchers.Main) {
+                replaceStory(updated)
+                activeWorkspace = StoryWorkspace.Prose
+            }
+        }
+    }
+
+    private fun discussionTranscript(): String = messages(StoryWorkspace.Discussion).joinToString("\n\n") {
+        val who = if (it.message.role == "user") "用户" else "助手"
+        "$who：${it.revision.content}"
+    }.trim()
+
+    private fun replaceStory(story: Story) {
+        val index = stories.indexOfFirst { it.id == story.id }
+        if (index >= 0) stories[index] = story
     }
 
     var archiveInitialSection by mutableStateOf(0)
