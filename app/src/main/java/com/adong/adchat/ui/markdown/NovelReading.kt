@@ -6,6 +6,9 @@ internal const val NAME_MARK_CLOSE = "*+-"
 internal const val NARRATIVE_NAME_MARK_INSTRUCTION =
     "写小说、故事或叙事正文时，人物姓名用 *+-姓名*+- 包住，只包名字本身。普通问答、代码和标题不要使用这组符号。"
 
+internal const val COVER_IMAGE_INSTRUCTION =
+    "当用户在找书籍、番号、视频或漫画时，只有你确实找到了作品，并且检索到了封面的图片直链，才在说明后单独一行放 ![](https://真实地址)。不要编造图片地址；找不到封面就不要放图。"
+
 private val CHAPTER_HEADING = Regex(
     """^(第\s*[0-9０-９一二三四五六七八九十百千零两〇]+\s*[章节回卷部篇幕]|序章|楔子|尾声|终章|番外|后记|前言|Chapter\s+\d+).*$""",
     RegexOption.IGNORE_CASE

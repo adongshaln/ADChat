@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.adong.adchat.data.*
+import com.adong.adchat.ui.markdown.COVER_IMAGE_INSTRUCTION
 import com.adong.adchat.ui.markdown.NARRATIVE_NAME_MARK_INSTRUCTION
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -801,7 +802,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 val result = repository.streamChat(
                     profile = profile,
                     model = model,
-                    systemPrompt = listOf(appConfig.systemPrompt, NARRATIVE_NAME_MARK_INSTRUCTION)
+                    systemPrompt = listOf(appConfig.systemPrompt, NARRATIVE_NAME_MARK_INSTRUCTION, COVER_IMAGE_INSTRUCTION)
                         .filter(String::isNotBlank).joinToString("\n\n"),
                     history = requestHistory,
                     cacheKey = "adchat-${activeConversationId ?: profile.id}",

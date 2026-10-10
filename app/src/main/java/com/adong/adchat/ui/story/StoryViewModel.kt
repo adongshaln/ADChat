@@ -1433,9 +1433,15 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
         var state = "failed"
         try {
             val prompt = if (category == "prose") {
-                listOf(systemPrompt, com.adong.adchat.ui.markdown.NARRATIVE_NAME_MARK_INSTRUCTION)
+                listOf(
+                    systemPrompt,
+                    com.adong.adchat.ui.markdown.NARRATIVE_NAME_MARK_INSTRUCTION,
+                    com.adong.adchat.ui.markdown.COVER_IMAGE_INSTRUCTION
+                ).filter(String::isNotBlank).joinToString("\n\n")
+            } else {
+                listOf(systemPrompt, com.adong.adchat.ui.markdown.COVER_IMAGE_INSTRUCTION)
                     .filter(String::isNotBlank).joinToString("\n\n")
-            } else systemPrompt
+            }
             val response = api.streamChat(
                 profile, model, prompt, preparedHistory, cacheKey,
                 trimHistory = false,

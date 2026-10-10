@@ -44,6 +44,9 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -96,6 +99,8 @@ import com.adong.adchat.ui.markdown.isStarredProseLine
 import com.adong.adchat.ui.markdown.joinProseLine
 import com.adong.adchat.ui.markdown.parseMarkdownTableAt
 import com.adong.adchat.ui.markdown.readingSpans
+import com.adong.adchat.ui.markdown.splitInlineImages
+import com.adong.adchat.ui.markdown.InlinePiece
 import com.adong.adchat.ui.markdown.ReadingSpan
 import com.adong.adchat.ui.theme.*
 import kotlinx.coroutines.CancellationException
@@ -1322,6 +1327,40 @@ private fun parseMarkdownBlocks(text: String): List<MarkdownBlock> {
 
 @Composable
 private fun MarkdownTextBlock(raw: String, showCursor: Boolean, error: Boolean) {
+    val pieces = remember(raw) { splitInlineImages(raw) }
+    Column(verticalArrangement = Arrangement.spacedBy(READING_BLOCK_GAP_DP.dp)) {
+        pieces.forEachIndexed { pieceIndex, piece ->
+            when (piece) {
+                is InlinePiece.RemoteImage -> ChatRemoteImage(piece.url, piece.alt)
+                is InlinePiece.Prose -> MarkdownProseBlock(
+                    raw = piece.text,
+                    showCursor = showCursor && pieceIndex == pieces.lastIndex,
+                    error = error
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ChatRemoteImage(url: String, alt: String) {
+    val context = LocalContext.current
+    var failed by remember(url) { mutableStateOf(false) }
+    if (failed) {
+        Text(url, color = Accent, style = MaterialTheme.typography.bodyMedium)
+        return
+    }
+    AsyncImage(
+        model = ImageRequest.Builder(context).data(url).crossfade(true).build(),
+        contentDescription = alt.ifBlank { "图片" },
+        modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).clip(RoundedCornerShape(14.dp)),
+        contentScale = ContentScale.Fit,
+        onError = { failed = true }
+    )
+}
+
+@Composable
+private fun MarkdownProseBlock(raw: String, showCursor: Boolean, error: Boolean) {
     val blocks = remember(raw) { parseMarkdownBlocks(raw) }
     val bodyStyle = MaterialTheme.typography.bodyLarge.copy(
         fontSize = READING_BODY_FONT_SP.sp,
