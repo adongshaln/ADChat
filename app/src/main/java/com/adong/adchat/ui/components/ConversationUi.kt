@@ -402,8 +402,7 @@ fun ConversationImages(attachments: List<ChatImageAttachment>) {
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         attachments.forEach { attachment ->
-            var measured by remember(attachment.id) { mutableStateOf(attachment.width to attachment.height) }
-            val fitted = fittedImageDp(measured.first, measured.second, maxWidth = 200f, maxHeight = 200f)
+            val fitted = fittedImageDp(attachment.width, attachment.height, maxWidth = 200f, maxHeight = 200f)
             val frame = if (fitted == null) Modifier.size(116.dp) else Modifier.size(fitted.first.dp, fitted.second.dp)
             Surface(
                 color = Color.White.copy(alpha = .12f),
@@ -414,14 +413,7 @@ fun ConversationImages(attachments: List<ChatImageAttachment>) {
                     model = attachment.uri,
                     contentDescription = attachment.name,
                     contentScale = ContentScale.Fit,
-                    modifier = frame.clip(RoundedCornerShape(13.dp)),
-                    onSuccess = { state ->
-                        val width = state.painter.intrinsicSize.width
-                        val height = state.painter.intrinsicSize.height
-                        if (width.isFinite() && height.isFinite() && width > 0f && height > 0f) {
-                            measured = width.toInt() to height.toInt()
-                        }
-                    }
+                    modifier = frame.clip(RoundedCornerShape(13.dp))
                 )
             }
         }

@@ -1382,29 +1382,34 @@ private fun PixivArtworkPreview(id: String, pageUrl: String) {
         val found = withContext(Dispatchers.IO) { runCatching { fetchPixivPreviewUrl(id) }.getOrNull() }
         if (found != null) preview = found else failed = true
     }
-    if (preview != null) ChatRemoteImage(preview!!, "Pixiv $id")
-    else if (!failed) Text("正在读取 Pixiv 预览…", color = MutedInk, style = MaterialTheme.typography.labelLarge)
     val confirm = LocalConfirmLink.current
-    Text(
-        pageUrl,
-        color = NameInk,
-        textDecoration = TextDecoration.Underline,
-        style = MaterialTheme.typography.bodyMedium,
-        modifier = Modifier.clickable { confirm(pageUrl) }
-    )
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(Modifier.width(280.dp).height(210.dp).clip(RoundedCornerShape(14.dp)), contentAlignment = Alignment.Center) {
+            when {
+                preview != null -> ChatRemoteImage(preview!!, "Pixiv $id", lockSlot = true)
+                !failed -> Text("正在读取 Pixiv 预览…", color = MutedInk, style = MaterialTheme.typography.labelLarge)
+            }
+        }
+        Text(
+            pageUrl,
+            color = NameInk,
+            textDecoration = TextDecoration.Underline,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.clickable { confirm(pageUrl) }
+        )
+    }
 }
 
 private val LocalImageFrames = staticCompositionLocalOf<MutableMap<String, Pair<Int, Int>>> { mutableMapOf() }
 
 @Composable
-private fun ChatRemoteImage(url: String, alt: String) {
+private fun ChatRemoteImage(url: String, alt: String, lockSlot: Boolean = false) {
     val context = LocalContext.current
     val frames = LocalImageFrames.current
-    val locked = frames[url]
+    val known = remember(url) { frames[url] }
     var bytes by remember(url) { mutableStateOf<ByteArray?>(null) }
     var directFailed by remember(url) { mutableStateOf(false) }
     var downloadFailed by remember(url) { mutableStateOf(false) }
-    var pixels by remember(url) { mutableStateOf(locked ?: (0 to 0)) }
     var zoomed by remember(url) { mutableStateOf(false) }
     LaunchedEffect(url, directFailed) {
         if (!directFailed || bytes != null || downloadFailed) return@LaunchedEffect
@@ -1412,38 +1417,45 @@ private fun ChatRemoteImage(url: String, alt: String) {
         if (loaded != null) bytes = loaded else downloadFailed = true
     }
     val shown = bytes ?: url
-    val request = ImageRequest.Builder(context).data(shown).crossfade(bytes == null && locked == null)
+    val request = ImageRequest.Builder(context).data(shown).crossfade(false)
     if (bytes == null) chatImageHeaders(url).forEach { (name, value) -> request.addHeader(name, value) }
     val model = request.build()
     if (zoomed) ZoomedChatImage(model, alt.ifBlank { "图片" }) { zoomed = false }
-    when {
-        bytes == null && directFailed && downloadFailed -> {
-            val confirm = LocalConfirmLink.current
-            Text(
-                url,
-                color = NameInk,
-                textDecoration = TextDecoration.Underline,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.clickable { confirm(url) }
+    val fitted = known?.let { fittedImageDp(it.first, it.second, maxWidth = 440f, maxHeight = 480f) }
+    val frame = when {
+        lockSlot -> Modifier.fillMaxSize()
+        fitted != null -> Modifier.size(fitted.first.dp, fitted.second.dp)
+        else -> Modifier.width(280.dp).height(210.dp)
+    }
+    Box(frame.clip(RoundedCornerShape(14.dp))) {
+        when {
+            bytes == null && directFailed && downloadFailed -> {
+                val confirm = LocalConfirmLink.current
+                Text(
+                    url,
+                    color = NameInk,
+                    textDecoration = TextDecoration.Underline,
+                    style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.align(Alignment.Center).padding(8.dp).clickable { confirm(url) }
+                )
+            }
+            bytes == null && directFailed -> Text(
+                "正在下载图片…",
+                color = MutedInk,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.align(Alignment.Center)
             )
-        }
-        bytes == null && directFailed -> Text("正在下载图片…", color = MutedInk, style = MaterialTheme.typography.labelLarge)
-        else -> {
-            val fitted = fittedImageDp(pixels.first, pixels.second, maxWidth = 440f, maxHeight = 480f)
-            val frame = if (fitted == null) Modifier.size(160.dp) else Modifier.size(fitted.first.dp, fitted.second.dp)
-            AsyncImage(
+            else -> AsyncImage(
                 model = model,
                 contentDescription = alt.ifBlank { "图片" },
-                modifier = frame.clip(RoundedCornerShape(14.dp)).clickable { zoomed = true },
+                modifier = Modifier.fillMaxSize().clickable { zoomed = true },
                 contentScale = ContentScale.Fit,
                 onSuccess = { state ->
                     if (url !in frames) {
                         val width = state.painter.intrinsicSize.width
                         val height = state.painter.intrinsicSize.height
                         if (width.isFinite() && height.isFinite() && width > 0f && height > 0f) {
-                            val measured = width.toInt() to height.toInt()
-                            frames[url] = measured
-                            pixels = measured
+                            frames[url] = width.toInt() to height.toInt()
                         }
                     }
                 },
