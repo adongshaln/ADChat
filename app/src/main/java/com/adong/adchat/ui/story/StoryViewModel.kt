@@ -444,11 +444,6 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
         "$who：${it.revision.content}"
     }.trim()
 
-    private fun replaceStory(story: Story) {
-        val index = stories.indexOfFirst { it.id == story.id }
-        if (index >= 0) stories[index] = story
-    }
-
     var archiveInitialSection by mutableStateOf(0)
         private set
     fun openPendingCandidates() { openArchive();archiveInitialSection=3 }

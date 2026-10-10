@@ -3,7 +3,7 @@ package com.adong.adchat.data.story
 import org.json.JSONObject
 
 /** The {{char}} card produced from the opening discussion. Opening text stays empty. */
-internal data class StoryCharacterCard(
+data class StoryCharacterCard(
     val name: String,
     val description: String,
     val personality: String,
@@ -32,7 +32,7 @@ internal data class StoryCharacterCard(
     }
 }
 
-internal fun parseUserPersona(raw: String): String {
+fun parseUserPersona(raw: String): String {
     val json = JSONObject(extractJsonObject(raw))
     return json.optString("persona").trim().also { require(it.isNotBlank()) { "身份卡是空的" } }
 }
