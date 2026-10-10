@@ -37,6 +37,34 @@ fun parseUserPersona(raw: String): String {
     return json.optString("persona").trim().also { require(it.isNotBlank()) { "身份卡是空的" } }
 }
 
+/** Confirmed {{char}} card and {{user}} persona sent with later story requests. */
+data class StoryCastContext(
+    val card: StoryCharacterCard? = null,
+    val userPersona: String = ""
+) {
+    fun toPromptBlock(): String = buildString {
+        card?.let { card ->
+            append("[已确认的对方角色卡。这是故事里的对方，不是用户]\n")
+            append("名字：").append(card.name)
+            if (card.description.isNotBlank()) append("\n这个人：").append(card.description)
+            if (card.personality.isNotBlank()) append("\n性格：").append(card.personality)
+            if (card.scenario.isNotBlank()) append("\n这部故事：").append(card.scenario)
+        }
+        if (userPersona.isNotBlank()) {
+            if (isNotEmpty()) append("\n\n")
+            append("[已确认的用户身份。这是用户在故事里的位置，不是对方]\n")
+            append(userPersona.trim())
+        }
+    }.trim()
+
+    companion object {
+        fun fromStory(story: Story): StoryCastContext = StoryCastContext(
+            card = StoryCharacterCard.fromStored(story.charCardJson),
+            userPersona = story.userPersona
+        )
+    }
+}
+
 internal fun extractJsonObject(raw: String): String {
     val fenced = Regex("```(?:json)?\\s*([\\s\\S]*?)```").find(raw)?.groupValues?.get(1)
     val source = fenced ?: raw

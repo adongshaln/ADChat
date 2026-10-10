@@ -685,6 +685,27 @@ data class TavernPreparedRequest(
     val generationOptions: ChatGenerationOptions
 )
 
+/** Fields from the confirmed character card. Blank fields stay out of the request. */
+data class TavernCharacterContext(
+    val name: String = "",
+    val description: String = "",
+    val personality: String = "",
+    val scenario: String = "",
+    val persona: String = ""
+) {
+    fun marker(identifier: String): String = when (identifier) {
+        "charDescription" -> description
+        "charPersonality" -> personality
+        "scenario" -> scenario
+        "personaDescription" -> persona
+        else -> ""
+    }.trim()
+
+    companion object {
+        val CARD_MARKERS = setOf("charDescription", "charPersonality", "scenario", "personaDescription")
+    }
+}
+
 object TavernPresetRuntime {
     private val markerIds = TAVERN_CONTEXT_MARKER_IDS
 
@@ -693,8 +714,10 @@ object TavernPresetRuntime {
         baseSystemPrompt: String,
         history: List<ChatMessage>,
         regexEnabled: Boolean = true,
-        random: Random = Random.Default
+        random: Random = Random.Default,
+        cast: TavernCharacterContext = TavernCharacterContext()
     ): TavernPreparedRequest {
+        val charName = cast.name.ifBlank { preset.name }
         val depths = history.indices.associateWith { history.lastIndex - it }
         val promptHistory = history.mapIndexed { index, message ->
             if (!regexEnabled) message else message.copy(
@@ -704,13 +727,13 @@ object TavernPresetRuntime {
                     role = message.role,
                     depth = depths.getValue(index),
                     surface = TavernRegexSurface.Prompt,
-                    macroValues = mapOf("user" to "用户", "char" to preset.name)
+                    macroValues = castMacros(charName, cast)
                 ).text
             )
         }
         val lastUser = promptHistory.lastOrNull { it.role == "user" }?.content.orEmpty()
         val lastAssistant = promptHistory.lastOrNull { it.role == "assistant" }?.content.orEmpty()
-        val macros = TavernMacroProcessor(preset.name, lastUser, lastAssistant, random)
+        val macros = TavernMacroProcessor(charName, lastUser, lastAssistant, random, cast)
         val byId = preset.prompts.associateBy(TavernPrompt::identifier)
         val ordered = if (preset.promptOrder.isNotEmpty()) preset.promptOrder else preset.prompts.map {
             TavernPromptOrderEntry(it.identifier, it.enabled)
@@ -724,8 +747,15 @@ object TavernPresetRuntime {
                 insertedHistory = true
                 continue
             }
-            val prompt = byId[entry.identifier] ?: continue
-            if (prompt.marker || entry.identifier in markerIds) continue
+            val prompt = byId[entry.identifier]
+            if (entry.identifier in TavernCharacterContext.CARD_MARKERS) {
+                val text = macros.expand(cast.marker(entry.identifier)).trim()
+                if (text.isNotBlank()) {
+                    assembled += ChatMessage(role = prompt?.role?.takeIf { it.isNotBlank() } ?: "system", content = text)
+                }
+                continue
+            }
+            if (prompt == null || prompt.marker || entry.identifier in markerIds) continue
             val content = macros.expand(prompt.content).trim()
             if (content.isNotBlank()) assembled += ChatMessage(role = prompt.role, content = content)
         }
@@ -746,14 +776,24 @@ object TavernPresetRuntime {
         content: String,
         role: String,
         depth: Int,
-        regexEnabled: Boolean
+        regexEnabled: Boolean,
+        cast: TavernCharacterContext = TavernCharacterContext()
     ): TavernRegexOutput = if (!regexEnabled) TavernRegexOutput(content, 0, emptyList()) else TavernRegexEngine.apply(
         preset = preset,
         text = content,
         role = role,
         depth = depth,
         surface = TavernRegexSurface.Display,
-        macroValues = mapOf("user" to "用户", "char" to preset.name)
+        macroValues = castMacros(cast.name.ifBlank { preset.name }, cast)
+    )
+
+    private fun castMacros(charName: String, cast: TavernCharacterContext): Map<String, String> = mapOf(
+        "user" to "用户",
+        "char" to charName,
+        "description" to cast.description,
+        "personality" to cast.personality,
+        "scenario" to cast.scenario,
+        "persona" to cast.persona
     )
 }
 
@@ -761,7 +801,8 @@ private class TavernMacroProcessor(
     private val characterName: String,
     private val lastUserMessage: String,
     private val lastAssistantMessage: String,
-    private val random: Random
+    private val random: Random,
+    private val cast: TavernCharacterContext = TavernCharacterContext()
 ) {
     private val variables = linkedMapOf<String, String>()
 
@@ -806,6 +847,10 @@ private class TavernMacroProcessor(
         return when (trimmed.lowercase()) {
             "user" -> "用户"
             "char" -> characterName
+            "description", "chardescription" -> cast.description
+            "personality", "charpersonality" -> cast.personality
+            "scenario" -> cast.scenario
+            "persona", "personadescription" -> cast.persona
             "lastusermessage" -> lastUserMessage
             "lastcharmessage", "lastassistantmessage" -> lastAssistantMessage
             "time" -> DateFormat.getTimeInstance(DateFormat.SHORT).format(Date())

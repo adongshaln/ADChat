@@ -103,7 +103,8 @@ object StoryContextComposer {
         discussionMessages: List<StoryMessageWithRevision>,
         budget: StoryContextBudget = StoryContextBudget(),
         organizedProseRevisionIds: Set<String> = emptySet(),
-        summarySources: Map<String, Set<String>>? = null
+        summarySources: Map<String, Set<String>>? = null,
+        cast: StoryCastContext = StoryCastContext()
     ): StoryContextResult {
         val stateView = StoryStateProjection.project(memoryRecords)
         if (workspace == StoryWorkspace.Prose && stateView.conflicts.isNotEmpty()) {
@@ -137,6 +138,11 @@ object StoryContextComposer {
         val currentTurnCost = currentTurn?.let { historyCost(it, budget) } ?: 0
         val base = buildString {
             append(storyWorkspaceSystemInstruction(workspace, baseInstruction).trim())
+            val castBlock = cast.toPromptBlock()
+            if (castBlock.isNotBlank()) {
+                append("\n\n")
+                append(castBlock)
+            }
             if (stateView.conflicts.isNotEmpty()) {
                 append("\n[以下资料尚有冲突，仅供讨论，不得选一方当作既定事实]\n")
                 append(stateView.conflicts.joinToString("\n") { it.description })

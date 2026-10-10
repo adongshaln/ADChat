@@ -26,7 +26,8 @@ import com.adong.adchat.data.summary
 import com.adong.adchat.data.story.Story
 import com.adong.adchat.data.story.StoryConflictEntry
 import com.adong.adchat.data.story.StoryChangeEntry
-import com.adong.adchat.data.story.StoryArchiveStore
+import com.adong.adchat.data.story.StoryCastContext
+import com.adong.adchat.data.story.StoryCharacterCard
 import com.adong.adchat.data.story.StoryContextComposer
 import com.adong.adchat.data.story.StoryMemoryApplyResult
 import com.adong.adchat.data.story.StoryMemoryKind
@@ -264,7 +265,17 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
         return if (workspace != StoryWorkspace.Prose || preset == null) {
             TavernRegexOutput(content, 0, emptyList())
         } else withContext(Dispatchers.Default) {
-            TavernPresetRuntime.display(preset, content, role, depth, regexEnabled)
+            val card = activeStory?.let { StoryCharacterCard.fromStored(it.charCardJson) }
+            TavernPresetRuntime.display(
+                preset, content, role, depth, regexEnabled,
+                com.adong.adchat.data.TavernCharacterContext(
+                    name = card?.name.orEmpty(),
+                    description = card?.description.orEmpty(),
+                    personality = card?.personality.orEmpty(),
+                    scenario = card?.scenario.orEmpty(),
+                    persona = activeStory?.userPersona.orEmpty()
+                )
+            )
         }
     }
 
@@ -752,10 +763,11 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
                 val prose=store.loadMessages(story.id,story.currentTimelineId,StoryWorkspace.Prose)
                 val historical=replacementInput!=null || prose.lastOrNull()?.revision?.id!=target.revision.id
                 val context=if(historical) store.historicalRewriteContext(target.message.id,target.revision.id,instruction,replacementInput,
-                        com.adong.adchat.data.story.StoryContextBudget.forModel(profile, fresh.model))
+                        com.adong.adchat.data.story.StoryContextBudget.forModel(profile, fresh.model), StoryCastContext.fromStory(fresh))
                     else com.adong.adchat.data.story.StoryRewriteContext.compose(target,instruction,
                         archiveStore.contextMemorySnapshot(story.id,story.currentTimelineId),prose,
-                        budget = com.adong.adchat.data.story.StoryContextBudget.forModel(profile, fresh.model))
+                        budget = com.adong.adchat.data.story.StoryContextBudget.forModel(profile, fresh.model),
+                        cast = StoryCastContext.fromStory(fresh))
                 val created=store.beginRewrite(target.message.id,target.revision.id,fresh.memoryVersion,instruction,profile.name,fresh.model,historical,replacementInput)
                 candidate=created
                 withContext(Dispatchers.Main) { rewriteCandidate=created }
@@ -1139,6 +1151,7 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
                 refreshWorkspaceIfVisible(story.id, workspace)
 
                 val memorySnapshot = archiveStore.contextMemorySnapshot(story.id, story.currentTimelineId)
+                val cast = StoryCastContext.fromStory(story)
                 val context = StoryContextComposer.compose(
                     workspace = workspace,
                     baseInstruction = workspaceSystemPrompt(workspace),
@@ -1148,7 +1161,8 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
                     summarySources = memorySnapshot.summarySources,
                     proseMessages = store.loadMessages(story.id, story.currentTimelineId, StoryWorkspace.Prose),
                     discussionMessages = store.loadMessages(story.id, story.currentTimelineId, StoryWorkspace.Discussion),
-                    budget = com.adong.adchat.data.story.StoryContextBudget.forModel(profile, routeModel)
+                    budget = com.adong.adchat.data.story.StoryContextBudget.forModel(profile, routeModel),
+                    cast = cast
                 )
                 context.truncationNotice?.let { notice ->
                     withContext(Dispatchers.Main) {
@@ -1160,7 +1174,8 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
                     workspace = workspace,
                     context = context,
                     preset = presetSnapshot,
-                    regexEnabled = presetRegexEnabledSnapshot
+                    regexEnabled = presetRegexEnabledSnapshot,
+                    cast = cast
                 )
 
                 val result = trackedChat(
