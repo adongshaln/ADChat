@@ -402,6 +402,7 @@ class ApiRepository internal constructor(
                 .header("Connection", "close")
                 .post(body.toString().toRequestBody(jsonMedia)).build()
             val call = streamingClient.newCall(request)
+            val reasoningMark = reasoningTotal.length
             val cancellationWatcher = CoroutineScope(currentCoroutineContext()).launch {
                 try { awaitCancellation() } finally { call.cancel() }
             }
@@ -479,6 +480,17 @@ class ApiRepository internal constructor(
                 cancellationWatcher.cancel()
             }
             val calls = toolAccumulator.completedCalls()
+            val producedReasoning = reasoningTotal.substring(reasoningMark)
+            if (shouldContinueAfterReasoningOnly(roundText.toString(), calls.size, producedReasoning)) {
+                return ProtocolRoundResult(
+                    text = "",
+                    usage = roundUsage,
+                    toolCalls = calls,
+                    citations = roundCitations.values.toList(),
+                    reasoningOnly = true,
+                    reasoningText = producedReasoning
+                )
+            }
             if (roundText.isBlank() && calls.isEmpty()) throw IllegalStateException("No recognizable message content or tool call in API response")
             return ProtocolRoundResult(roundText.toString(), roundUsage, calls, roundCitations.values.toList())
         }
@@ -489,6 +501,7 @@ class ApiRepository internal constructor(
         var delegatedSearchCalls = 0
         val delegatedSearchCache = linkedMapOf<String, DelegatedSearchResult>()
         val skillToolReuseGuard = SkillToolReuseGuard()
+        var reasoningContinuations = 0
         for (roundIndex in 0 until MAX_TOOL_ROUNDS) {
             skillToolReuseGuard.beginRound()
             val forceSkill = skillLoadingEnabled && requireSkillLoad && roundIndex == 0
@@ -501,6 +514,23 @@ class ApiRepository internal constructor(
             }
             usage = usage + round.usage
             round.citations.forEach { citations[it.url] = it }
+            if (round.reasoningOnly) {
+                reasoningContinuations += 1
+                if (reasoningContinuations > 2) {
+                    val note = "思考内容过长，模型还没开始回答。可以降低思考强度后再试。"
+                    val prefix = if (full.isNotEmpty() && !full.endsWith('\n')) "\n\n" else ""
+                    full.append(prefix).append(note)
+                    onDelta(prefix + note)
+                    break
+                }
+                messages.put(JSONObject()
+                    .put("role", "assistant")
+                    .put("content", "")
+                    .put("reasoning_content", round.reasoningText))
+                messages.put(JSONObject().put("role", "user").put("content", REASONING_CONTINUE_PROMPT))
+                continue
+            }
+            reasoningContinuations = 0
             if (round.toolCalls.isEmpty()) {
                 completedNormally = true
                 break

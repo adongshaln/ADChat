@@ -132,8 +132,16 @@ internal data class ProtocolRoundResult(
     val toolCalls: List<PendingToolCall>,
     val citations: List<ChatCitation>,
     val responseId: String = "",
-    val usedWebSearch: Boolean = false
+    val usedWebSearch: Boolean = false,
+    val reasoningOnly: Boolean = false,
+    val reasoningText: String = ""
 )
+
+internal const val REASONING_CONTINUE_PROMPT =
+    "思考已经足够。请直接给出回答；如果仍需要工具，请立刻调用。不要再只输出思考。"
+
+internal fun shouldContinueAfterReasoningOnly(text: String, toolCallCount: Int, reasoning: String): Boolean =
+    text.isBlank() && toolCallCount == 0 && reasoning.isNotBlank()
 
 internal operator fun TokenUsage.plus(other: TokenUsage): TokenUsage = TokenUsage(
     inputTokens = inputTokens + other.inputTokens,
