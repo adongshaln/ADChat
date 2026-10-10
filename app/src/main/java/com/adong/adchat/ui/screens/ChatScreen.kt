@@ -1437,13 +1437,14 @@ private fun ChatRemoteImage(url: String, alt: String) {
                 modifier = frame.clip(RoundedCornerShape(14.dp)).clickable { zoomed = true },
                 contentScale = ContentScale.Fit,
                 onSuccess = { state ->
-                    if (url in frames) return@onSuccess
-                    val width = state.painter.intrinsicSize.width
-                    val height = state.painter.intrinsicSize.height
-                    if (width.isFinite() && height.isFinite() && width > 0f && height > 0f) {
-                        val measured = width.toInt() to height.toInt()
-                        frames[url] = measured
-                        pixels = measured
+                    if (url !in frames) {
+                        val width = state.painter.intrinsicSize.width
+                        val height = state.painter.intrinsicSize.height
+                        if (width.isFinite() && height.isFinite() && width > 0f && height > 0f) {
+                            val measured = width.toInt() to height.toInt()
+                            frames[url] = measured
+                            pixels = measured
+                        }
                     }
                 },
                 onError = { if (bytes == null) directFailed = true }
