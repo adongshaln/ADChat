@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.adong.adchat.data.ChatImageAttachment
+import com.adong.adchat.ui.fittedImageDp
 import com.adong.adchat.ui.theme.*
 import kotlin.math.PI
 import kotlin.math.sin
@@ -401,6 +402,9 @@ fun ConversationImages(attachments: List<ChatImageAttachment>) {
         horizontalArrangement = Arrangement.spacedBy(6.dp)
     ) {
         attachments.forEach { attachment ->
+            var measured by remember(attachment.id) { mutableStateOf(attachment.width to attachment.height) }
+            val fitted = fittedImageDp(measured.first, measured.second, maxWidth = 200f, maxHeight = 200f)
+            val frame = if (fitted == null) Modifier.size(116.dp) else Modifier.size(fitted.first.dp, fitted.second.dp)
             Surface(
                 color = Color.White.copy(alpha = .12f),
                 shape = RoundedCornerShape(14.dp),
@@ -409,8 +413,15 @@ fun ConversationImages(attachments: List<ChatImageAttachment>) {
                 AsyncImage(
                     model = attachment.uri,
                     contentDescription = attachment.name,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(116.dp).clip(RoundedCornerShape(13.dp))
+                    contentScale = ContentScale.Fit,
+                    modifier = frame.clip(RoundedCornerShape(13.dp)),
+                    onSuccess = { state ->
+                        val width = state.painter.intrinsicSize.width
+                        val height = state.painter.intrinsicSize.height
+                        if (width.isFinite() && height.isFinite() && width > 0f && height > 0f) {
+                            measured = width.toInt() to height.toInt()
+                        }
+                    }
                 )
             }
         }

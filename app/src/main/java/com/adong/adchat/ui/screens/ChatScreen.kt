@@ -8,6 +8,11 @@ import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
@@ -42,6 +47,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import coil.compose.AsyncImage
@@ -83,6 +89,10 @@ import com.adong.adchat.data.TOOL_STATUS_COMPLETED
 import com.adong.adchat.data.TOOL_STATUS_FAILED
 import com.adong.adchat.data.TOOL_STATUS_RUNNING
 import com.adong.adchat.ui.MainViewModel
+import com.adong.adchat.ui.fittedImageDp
+import com.adong.adchat.ui.modelWorkingCaption
+import com.adong.adchat.ui.showModelWorkingFoot
+import com.adong.adchat.ui.waitingOnUser
 import com.adong.adchat.ui.ContextUsage
 import com.adong.adchat.ui.chat.questionNavigationTargets
 import com.adong.adchat.ui.components.*
@@ -120,6 +130,8 @@ import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 import java.util.Locale
+import kotlin.math.PI
+import kotlin.math.sin
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -629,6 +641,14 @@ private fun ChatMessageItem(
                         error = message.isError,
                         onStreamingTextAdvanced = onStreamingTextAdvanced
                     )
+                    if (showModelWorkingFoot(
+                            message.isStreaming,
+                            message.content.isBlank(),
+                            waitingOnUser(message.toolActivities)
+                        )
+                    ) {
+                        ModelWorkingFoot(modelWorkingCaption(message.toolActivities, message.isRecovering))
+                    }
                 }
                 if (message.generatedFiles.isNotEmpty()) {
                     GeneratedFilesPanel(message.generatedFiles, onSaveFile)
@@ -1365,10 +1385,13 @@ private fun MarkdownTextBlock(raw: String, showCursor: Boolean, error: Boolean) 
 private fun ChatRemoteImage(url: String, alt: String) {
     val context = LocalContext.current
     var failed by remember(url) { mutableStateOf(false) }
+    var pixels by remember(url) { mutableStateOf(0 to 0) }
     if (failed) {
         Text(url, color = Accent, style = MaterialTheme.typography.bodyMedium)
         return
     }
+    val fitted = fittedImageDp(pixels.first, pixels.second, maxWidth = 440f, maxHeight = 480f)
+    val frame = if (fitted == null) Modifier.size(160.dp) else Modifier.size(fitted.first.dp, fitted.second.dp)
     AsyncImage(
         model = ImageRequest.Builder(context)
             .data(url)
@@ -1380,8 +1403,15 @@ private fun ChatRemoteImage(url: String, alt: String) {
             .crossfade(true)
             .build(),
         contentDescription = alt.ifBlank { "图片" },
-        modifier = Modifier.fillMaxWidth().heightIn(max = 420.dp).clip(RoundedCornerShape(14.dp)),
+        modifier = frame.clip(RoundedCornerShape(14.dp)),
         contentScale = ContentScale.Fit,
+        onSuccess = { state ->
+            val width = state.painter.intrinsicSize.width
+            val height = state.painter.intrinsicSize.height
+            if (width.isFinite() && height.isFinite() && width > 0f && height > 0f) {
+                pixels = width.toInt() to height.toInt()
+            }
+        },
         onError = { failed = true }
     )
 }
@@ -1765,6 +1795,27 @@ private fun AsterWritingCursorLine(error: Boolean) {
         selectable = false,
         showWritingCursor = true
     )
+}
+
+@Composable
+private fun ModelWorkingFoot(caption: String) {
+    val density = LocalDensity.current
+    val transition = rememberInfiniteTransition(label = "model-working")
+    val beat by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(tween(720, easing = LinearEasing), RepeatMode.Restart),
+        label = "model-working-beat"
+    )
+    val lift = with(density) { 4.dp.toPx() } * sin(PI * beat).toFloat()
+    Row(Modifier.padding(top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        AsterMark(
+            Modifier.size(18.dp).graphicsLayer { translationY = -lift },
+            tint = Accent
+        )
+        Spacer(Modifier.width(8.dp))
+        Text(caption, color = MutedInk, style = MaterialTheme.typography.labelLarge)
+    }
 }
 
 private val LocalConfirmLink = staticCompositionLocalOf<(String) -> Unit> { {} }
