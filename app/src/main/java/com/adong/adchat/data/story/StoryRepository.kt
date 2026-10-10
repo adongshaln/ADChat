@@ -77,6 +77,23 @@ class StoryRepository(context: Context) : AutoCloseable {
         return story.copy(setupPhase = StorySetupPhase.Discussion)
     }
 
+    fun createImportedStory(imported: ImportedCharacterCard, profileId: String, model: String): Story {
+        val created = createStory(imported.card.name.take(60), profileId, model)
+        val updated = updateStorySetup(created.id, StorySetupPhase.Prose, charCardJson = imported.card.toJson())
+        if (imported.opening.isNotBlank()) {
+            appendMessage(
+                storyId = updated.id,
+                timelineId = updated.currentTimelineId,
+                workspace = StoryWorkspace.Prose,
+                role = "assistant",
+                content = imported.opening,
+                state = StoryRevisionState.Complete,
+                model = model
+            )
+        }
+        return getStory(updated.id) ?: updated
+    }
+
     fun updateStorySetup(
         storyId: String,
         phase: StorySetupPhase,

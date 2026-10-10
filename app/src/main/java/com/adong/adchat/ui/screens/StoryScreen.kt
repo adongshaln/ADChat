@@ -280,16 +280,18 @@ private fun StoryHeader(
             AsterIconButton(Icons.Rounded.MoreHoriz, "故事选项", { showActions = true })
             AsterIconButton(Icons.Rounded.AddComment, "新建故事", onCreateStory)
         }
-        AsterSegmentedControl(
-            labels = listOf("讨论", "正文"),
-            selectedIndex = StoryWorkspace.entries.indexOf(workspace),
-            onSelect = { index ->
-                val next = StoryWorkspace.entries[index]
-                if (next == StoryWorkspace.Prose && setupPhase != com.adong.adchat.data.story.StorySetupPhase.Prose) return@AsterSegmentedControl
-                onWorkspace(next)
-            },
-            modifier = Modifier.padding(start = 48.dp, end = 48.dp, top = 2.dp, bottom = 4.dp)
-        )
+        if (!story.hidesDiscussion) {
+            AsterSegmentedControl(
+                labels = listOf("讨论", "正文"),
+                selectedIndex = StoryWorkspace.entries.indexOf(workspace),
+                onSelect = { index ->
+                    val next = StoryWorkspace.entries[index]
+                    if (next == StoryWorkspace.Prose && setupPhase != com.adong.adchat.data.story.StorySetupPhase.Prose) return@AsterSegmentedControl
+                    onWorkspace(next)
+                },
+                modifier = Modifier.padding(start = 48.dp, end = 48.dp, top = 2.dp, bottom = 4.dp)
+            )
+        }
         Text(
             "预设 · ${readablePresetName(tavernPresetName)}",
             color = MutedInk,

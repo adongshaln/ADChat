@@ -4,7 +4,9 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -127,6 +129,17 @@ private fun AsterApp(vm: MainViewModel, incomingMediaText: String?, onMediaTextC
         storyTitle = ""
         showStoryCreator = true
         scope.launch { drawerState.close() }
+    }
+    val cardPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            showStoryCreator = false
+            storyVm.importCharacterCard(uri, vm.chatProfile) { page = AppPage.Story }
+        }
+    }
+    LaunchedEffect(storyVm.cardImportError) {
+        val message = storyVm.cardImportError ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(message)
+        storyVm.clearCardImportError()
     }
 
     BackHandler(enabled = page != AppPage.Chat && drawerState.isClosed) { navigate(AppPage.Chat) }
@@ -261,6 +274,15 @@ private fun AsterApp(vm: MainViewModel, incomingMediaText: String?, onMediaTextC
                     } else {
                         Text("使用 ${vm.chatProfile.name} · ${vm.chatProfile.chatModel}", color = MutedInk, style = MaterialTheme.typography.bodySmall)
                     }
+                    OutlinedButton(
+                        onClick = {
+                            cardPicker.launch(arrayOf("image/png", "application/json", "application/zip", "text/plain", "application/octet-stream"))
+                        },
+                        enabled = vm.chatProfile.chatModel.isNotBlank(),
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = RoundedCornerShape(16.dp)
+                    ) { Text("导入角色卡") }
+                    Text("导入后不进入讨论。开场白会去掉网页和样式，只留下正文。", color = MutedInk, style = MaterialTheme.typography.bodySmall)
                 }
             },
             actions = {

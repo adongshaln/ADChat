@@ -331,12 +331,60 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    var cardImportError by mutableStateOf<String?>(null)
+        private set
+
+    fun clearCardImportError() { cardImportError = null }
+
+    fun importCharacterCard(uri: Uri, profile: ApiProfile, onCreated: (Story) -> Unit = {}) {
+        if (profile.chatModel.isBlank()) {
+            cardImportError = "请先配置一个可用的对话模型。"
+            return
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching {
+                val resolver = getApplication<Application>().contentResolver
+                val bytes = requireNotNull(resolver.openInputStream(uri)) { "无法读取所选文件" }.use { input ->
+                    val buffer = java.io.ByteArrayOutputStream()
+                    val chunk = ByteArray(16 * 1024)
+                    var total = 0
+                    while (true) {
+                        val count = input.read(chunk)
+                        if (count < 0) break
+                        total += count
+                        require(total <= 32 * 1024 * 1024) { "角色卡文件太大" }
+                        buffer.write(chunk, 0, count)
+                    }
+                    buffer.toByteArray()
+                }
+                val imported = CharacterCardFile.parse(bytes)
+                val story = store.createImportedStory(imported, profile.id, profile.chatModel)
+                withContext(Dispatchers.Main) {
+                    stories.add(0, story)
+                    stateEpoch++
+                    activeStoryId = story.id
+                    activeWorkspace = StoryWorkspace.Prose
+                    workspaceMessages.clear()
+                    workspaceStates.clear()
+                    archiveRecords.clear(); archiveConflicts.clear()
+                    archiveProposals.clear()
+                    errors.clear()
+                    cardImportError = null
+                    loadActiveStoryState(story)
+                    onCreated(story)
+                }
+            }.onFailure { error ->
+                withContext(Dispatchers.Main) { cardImportError = error.message ?: "导入角色卡失败" }
+            }
+        }
+    }
+
     fun selectStory(storyId: String) {
         if (activeStoryId == storyId && workspaceMessages.isNotEmpty()) return
         val story = stories.firstOrNull { it.id == storyId } ?: return
         stateEpoch++
         activeStoryId = storyId
-        activeWorkspace = StoryWorkspace.Discussion
+        activeWorkspace = if (story.hidesDiscussion) StoryWorkspace.Prose else StoryWorkspace.Discussion
         workspaceMessages.clear()
         workspaceStates.clear()
         archiveRecords.clear(); archiveConflicts.clear()
@@ -346,6 +394,7 @@ class StoryViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun switchWorkspace(workspace: StoryWorkspace) {
+        if (workspace == StoryWorkspace.Discussion && activeStory?.hidesDiscussion == true) return
         if (workspace == StoryWorkspace.Prose && activeStory?.setupPhase != StorySetupPhase.Prose) return
         activeWorkspace = workspace
         errors.remove(workspace)

@@ -691,18 +691,22 @@ data class TavernCharacterContext(
     val description: String = "",
     val personality: String = "",
     val scenario: String = "",
-    val persona: String = ""
+    val persona: String = "",
+    val mesExample: String = ""
 ) {
     fun marker(identifier: String): String = when (identifier) {
         "charDescription" -> description
         "charPersonality" -> personality
         "scenario" -> scenario
         "personaDescription" -> persona
+        "dialogueExamples" -> mesExample
         else -> ""
     }.trim()
 
     companion object {
-        val CARD_MARKERS = setOf("charDescription", "charPersonality", "scenario", "personaDescription")
+        val CARD_MARKERS = setOf(
+            "charDescription", "charPersonality", "scenario", "personaDescription", "dialogueExamples"
+        )
     }
 }
 

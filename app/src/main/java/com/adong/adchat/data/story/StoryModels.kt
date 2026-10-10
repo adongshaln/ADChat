@@ -109,7 +109,10 @@ data class Story(
     val setupPhase: StorySetupPhase = StorySetupPhase.Prose,
     val charCardJson: String = "",
     val userPersona: String = ""
-)
+) {
+    val hidesDiscussion: Boolean
+        get() = StoryCharacterCard.fromStored(charCardJson)?.imported == true
+}
 
 data class StoryTimeline(
     val id: String = newTimelineId(),

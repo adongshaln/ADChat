@@ -37,7 +37,8 @@ object StoryGenerationPreset {
                         description = cast.card?.description.orEmpty(),
                         personality = cast.card?.personality.orEmpty(),
                         scenario = cast.card?.scenario.orEmpty(),
-                        persona = cast.userPersona
+                        persona = cast.userPersona,
+                        mesExample = cast.card?.mesExample.orEmpty()
                     )
                 )
             }
