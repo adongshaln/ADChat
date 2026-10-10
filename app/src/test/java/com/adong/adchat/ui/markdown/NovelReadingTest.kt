@@ -19,18 +19,19 @@ class NovelReadingTest {
         assertTrue(isStarredProseLine("* 他低声说*"))
         assertFalse(isStarredProseLine("* 一条普通列表"))
         assertTrue(emphasisSpanAllowed("微微一笑"))
-        assertFalse(emphasisSpanAllowed("终于开口，把后面整段都斜体"))
+        assertTrue(emphasisSpanAllowed("终于开口，把后面一句斜体。"))
+        assertFalse(emphasisSpanAllowed("星".repeat(401)))
     }
 
     @Test
     fun nameMarksHideDelimitersAndLeaveUnclosedTextAlone() {
-        val spans = readingSpans("门外是/..沈青../，还有/..未写完")
+        val spans = readingSpans("门外是*+-沈青*+-，还有*+-未写完")
         assertEquals(
             listOf(
                 ReadingSpan.Text("门外是"),
                 ReadingSpan.Name("沈青"),
                 ReadingSpan.Text("，还有"),
-                ReadingSpan.Text("/..未写完")
+                ReadingSpan.Text("*+-未写完")
             ),
             spans
         )

@@ -1752,7 +1752,7 @@ private fun basicInlineMarkdown(text: String): AnnotatedString = buildAnnotatedS
                     else -> SpanStyle(fontStyle = FontStyle.Italic)
                 }
                 pushStyle(style)
-                append(text.substring(index + token.length, end))
+                append(basicInlineMarkdown(text.substring(index + token.length, end)))
                 pop()
                 index = end + token.length
             } else {

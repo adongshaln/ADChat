@@ -1,7 +1,10 @@
 package com.adong.adchat.ui.markdown
 
-internal const val NAME_MARK_OPEN = "/.."
-internal const val NAME_MARK_CLOSE = "../"
+internal const val NAME_MARK_OPEN = "*+-"
+internal const val NAME_MARK_CLOSE = "*+-"
+
+internal const val NARRATIVE_NAME_MARK_INSTRUCTION =
+    "写小说、故事或叙事正文时，人物姓名用 *+-姓名*+- 包住，只包名字本身。普通问答、代码和标题不要使用这组符号。"
 
 private val CHAPTER_HEADING = Regex(
     """^(第\s*[0-9０-９一二三四五六七八九十百千零两〇]+\s*[章节回卷部篇幕]|序章|楔子|尾声|终章|番外|后记|前言|Chapter\s+\d+).*$""",
@@ -27,11 +30,11 @@ internal fun isStarredProseLine(line: String): Boolean {
     return trimmed.length > 2 && trimmed.startsWith("*") && trimmed.endsWith("*") && !trimmed.startsWith("**")
 }
 
-/** Single-marker emphasis must stay short, or one stray star italicizes the rest of a paragraph. */
+/** Closed emphasis is real formatting. Only an empty, huge, or line-breaking span stays literal, so one stray star cannot italicize the rest of the chapter. */
 internal fun emphasisSpanAllowed(inner: String): Boolean {
-    if (inner.isEmpty() || inner.length > 32) return false
-    if (inner.any { it == '\n' || it == '。' || it == '！' || it == '？' || it == '!' || it == '?' || it == '，' }) return false
-    if (inner.all { it.isWhitespace() || it == '*' || it == '_' || it == '·' || it == '•' }) return false
+    if (inner.isBlank() || inner.length > 400) return false
+    if (inner.contains('\n')) return false
+    if (inner.all { it.isWhitespace() || it == '*' || it == '_' }) return false
     return true
 }
 
@@ -62,27 +65,34 @@ internal sealed class ReadingSpan {
     data class Name(val value: String) : ReadingSpan()
 }
 
-/** Hides `/..` `../` and keeps the name as its own span. An unclosed mark stays literal. */
+private val NAME_MARKS = listOf("*+-" to "*+-", "/.." to "../")
+
+/** Hides name marks and keeps the name as its own span. An unclosed mark stays literal. */
 internal fun readingSpans(text: String): List<ReadingSpan> {
-    if (!text.contains(NAME_MARK_OPEN)) return listOf(ReadingSpan.Text(text))
+    val normalized = text.replace('＊', '*').replace('﹡', '*')
+    if (NAME_MARKS.none { normalized.contains(it.first) }) return listOf(ReadingSpan.Text(normalized))
     val result = mutableListOf<ReadingSpan>()
     var index = 0
-    while (index < text.length) {
-        val start = text.indexOf(NAME_MARK_OPEN, index)
-        if (start < 0) {
-            result += ReadingSpan.Text(text.substring(index))
+    while (index < normalized.length) {
+        val opening = NAME_MARKS.mapNotNull { mark ->
+            val at = normalized.indexOf(mark.first, index)
+            if (at < 0) null else Triple(mark.first, mark.second, at)
+        }.minByOrNull { it.third }
+        if (opening == null) {
+            result += ReadingSpan.Text(normalized.substring(index))
             break
         }
-        if (start > index) result += ReadingSpan.Text(text.substring(index, start))
-        val end = text.indexOf(NAME_MARK_CLOSE, start + NAME_MARK_OPEN.length)
+        val (open, close, start) = opening
+        if (start > index) result += ReadingSpan.Text(normalized.substring(index, start))
+        val end = normalized.indexOf(close, start + open.length)
         if (end < 0) {
-            result += ReadingSpan.Text(text.substring(start))
+            result += ReadingSpan.Text(normalized.substring(start))
             break
         }
-        val name = text.substring(start + NAME_MARK_OPEN.length, end)
-        if (name.isBlank()) result += ReadingSpan.Text(text.substring(start, end + NAME_MARK_CLOSE.length))
+        val name = normalized.substring(start + open.length, end)
+        if (name.isBlank()) result += ReadingSpan.Text(normalized.substring(start, end + close.length))
         else result += ReadingSpan.Name(name)
-        index = end + NAME_MARK_CLOSE.length
+        index = end + close.length
     }
     return result
 }
