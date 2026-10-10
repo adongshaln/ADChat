@@ -1261,7 +1261,7 @@ private fun StoryWorkspaceContent(
             visible = listState.canScrollForward && storyVm.error(workspace) == null,
             loading = loading,
             onClick = { autoFollow = true; scope.launch { listState.animateScrollToItem(bottomItemIndex) } },
-            modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = composerHeight + 18.dp)
+            modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = (composerHeight - 24.dp).coerceAtLeast(0.dp))
         )
 
         StoryComposer(

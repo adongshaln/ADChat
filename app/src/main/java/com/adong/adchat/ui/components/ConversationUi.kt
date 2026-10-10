@@ -494,12 +494,22 @@ fun ConversationReadingVeil(modifier: Modifier = Modifier) {
 @Composable
 fun ConversationJumpToBottom(visible: Boolean, loading: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     AnimatedVisibility(visible, modifier, enter = fadeIn(tween(140)), exit = fadeOut(tween(100))) {
-        Surface(onClick = onClick, color = Surface, contentColor = Accent, shape = CircleShape,
-            border = BorderStroke(1.dp, Hairline), tonalElevation = 0.dp, shadowElevation = 0.dp) {
-            Row(Modifier.heightIn(min = 48.dp).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Rounded.KeyboardArrowDown, null, Modifier.size(20.dp))
-                Spacer(Modifier.width(6.dp))
-                Text(if (loading) "跟随生成" else "回到底部", style = MaterialTheme.typography.labelLarge)
+        Surface(
+            onClick = onClick,
+            color = Surface,
+            contentColor = Accent,
+            shape = CircleShape,
+            border = BorderStroke(1.dp, Hairline),
+            tonalElevation = 0.dp,
+            shadowElevation = 0.dp,
+            modifier = Modifier.size(48.dp)
+        ) {
+            Box(contentAlignment = Alignment.Center) {
+                Icon(
+                    Icons.Rounded.KeyboardArrowDown,
+                    if (loading) "跟随生成" else "回到底部",
+                    Modifier.size(22.dp)
+                )
             }
         }
     }

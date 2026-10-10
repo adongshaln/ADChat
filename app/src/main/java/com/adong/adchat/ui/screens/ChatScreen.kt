@@ -393,7 +393,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
             ConversationJumpToBottom(
                 visible = showJumpToBottom, loading = vm.isChatLoading,
                 onClick = { autoFollow = true; scope.launch { listState.animateScrollToItem(vm.messages.size) } },
-                modifier = Modifier.align(Alignment.BottomEnd).padding(end = 18.dp, bottom = composerClearance)
+                modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = (composerHeight - 24.dp).coerceAtLeast(0.dp))
             )
             Box(
                 Modifier.align(Alignment.BottomCenter).fillMaxWidth()
