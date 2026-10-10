@@ -84,6 +84,7 @@ import androidx.compose.ui.window.DialogProperties
 import com.adong.adchat.data.ChatImageAttachment
 import com.adong.adchat.data.chatImageHeaders
 import com.adong.adchat.data.downloadChatImage
+import com.adong.adchat.data.fetchPixivPreviewUrl
 import com.adong.adchat.data.ReasoningPolicy
 import com.adong.adchat.data.usesResponses
 import com.adong.adchat.data.ChatFileAttachment
@@ -1359,6 +1360,7 @@ private fun MarkdownTextBlock(raw: String, showCursor: Boolean, error: Boolean) 
         pieces.forEachIndexed { pieceIndex, piece ->
             when (piece) {
                 is InlinePiece.RemoteImage -> ChatRemoteImage(piece.url, piece.alt)
+                is InlinePiece.PixivArtwork -> PixivArtworkPreview(piece.id, piece.pageUrl)
                 is InlinePiece.Prose -> MarkdownProseBlock(
                     raw = piece.text,
                     showCursor = showCursor && pieceIndex == pieces.lastIndex,
@@ -1367,6 +1369,26 @@ private fun MarkdownTextBlock(raw: String, showCursor: Boolean, error: Boolean) 
             }
         }
     }
+}
+
+@Composable
+private fun PixivArtworkPreview(id: String, pageUrl: String) {
+    var preview by remember(id) { mutableStateOf<String?>(null) }
+    var failed by remember(id) { mutableStateOf(false) }
+    LaunchedEffect(id) {
+        val found = withContext(Dispatchers.IO) { runCatching { fetchPixivPreviewUrl(id) }.getOrNull() }
+        if (found != null) preview = found else failed = true
+    }
+    if (preview != null) ChatRemoteImage(preview!!, "Pixiv $id")
+    else if (!failed) Text("正在读取 Pixiv 预览…", color = MutedInk, style = MaterialTheme.typography.labelLarge)
+    val confirm = LocalConfirmLink.current
+    Text(
+        pageUrl,
+        color = NameInk,
+        textDecoration = TextDecoration.Underline,
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.clickable { confirm(pageUrl) }
+    )
 }
 
 @Composable

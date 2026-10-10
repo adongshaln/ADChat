@@ -36,10 +36,20 @@ class InlineImagesTest {
     }
 
     @Test
-    fun plainScanStopsAtALinkInsideTheParagraph() {
-        val text = "作品页：\nhttps://www.pixiv.net/artworks/135153978"
-        val end = nextPlainEnd(text, 0, listOf("**", "__", "~~", "`", "*", "_"))
-        assertEquals(text.indexOf("https://"), end)
-        assertEquals("https://www.pixiv.net/artworks/135153978", linkAt(text, end)?.url)
+    fun markdownLinkIsNotSplitAtItsUrl() {
+        val text = "作品 [97224444](https://www.pixiv.net/artworks/97224444) 完"
+        val end = nextPlainEnd(text, 0, listOf("**", "*", "_"))
+        assertEquals(text.indexOf('['), end)
+        val link = linkAt(text, end)
+        assertEquals("97224444", link?.label)
+        assertEquals("https://www.pixiv.net/artworks/97224444", link?.url)
+    }
+
+    @Test
+    fun brokenPixivPageLinkBecomesAnArtwork() {
+        val pieces = splitInlineImages("[97224444](https://www.pixiv.net/artworks\n/97224444)")
+        val art = pieces.filterIsInstance<InlinePiece.PixivArtwork>().single()
+        assertEquals("97224444", art.id)
+        assertEquals("https://www.pixiv.net/artworks/97224444", art.pageUrl)
     }
 }

@@ -5,6 +5,7 @@ import java.net.URI
 import java.util.concurrent.TimeUnit
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import org.json.JSONObject
 
 internal const val CHAT_IMAGE_USER_AGENT =
     "Mozilla/5.0 (Linux; Android 14; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Mobile Safari/537.36"
@@ -66,5 +67,30 @@ internal fun downloadChatImage(url: String): ByteArray? {
         }
         val bytes = output.toByteArray()
         return bytes.takeIf { looksLikeImage(it, type) }
+    }
+}
+
+internal fun parsePixivPreviewUrl(json: String): String? {
+    val root = runCatching { JSONObject(json) }.getOrNull() ?: return null
+    if (root.optBoolean("error")) return null
+    val urls = root.optJSONObject("body")?.optJSONObject("urls") ?: return null
+    return listOf("regular", "small", "thumb", "original").firstNotNullOfOrNull { key ->
+        urls.optString(key).takeIf { it.startsWith("http") }
+    }
+}
+
+/** Public artwork pages do not include a hotlinkable image. The ajax payload does. */
+internal fun fetchPixivPreviewUrl(id: String): String? {
+    if (id.isEmpty() || id.any { !it.isDigit() }) return null
+    val request = Request.Builder()
+        .url("https://www.pixiv.net/ajax/illust/$id")
+        .header("User-Agent", CHAT_IMAGE_USER_AGENT)
+        .header("Referer", "https://www.pixiv.net/")
+        .header("Accept", "application/json")
+        .get()
+        .build()
+    chatImageClient.newCall(request).execute().use { response ->
+        if (!response.isSuccessful) return null
+        return parsePixivPreviewUrl(response.body?.string().orEmpty())
     }
 }

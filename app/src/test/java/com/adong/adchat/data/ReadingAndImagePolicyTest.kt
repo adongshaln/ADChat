@@ -27,4 +27,11 @@ class ReadingAndImagePolicyTest {
         assertFalse(looksLikeImage("<html></html>".toByteArray(), "text/html"))
         assertTrue(looksLikeImage(byteArrayOf(0x89.toByte(), 0x50.toByte(), 0x4E.toByte(), 0x47.toByte()), null))
     }
+
+    @Test
+    fun pixivAjaxPrefersTheRegularPreview() {
+        val json = """{"error":false,"body":{"urls":{"thumb":"https://i.pximg.net/thumb.jpg","regular":"https://i.pximg.net/regular.jpg"}}}"""
+        assertEquals("https://i.pximg.net/regular.jpg", parsePixivPreviewUrl(json))
+        assertEquals(null, parsePixivPreviewUrl("""{"error":true}"""))
+    }
 }
