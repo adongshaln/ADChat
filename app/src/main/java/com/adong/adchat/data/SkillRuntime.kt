@@ -383,6 +383,7 @@ internal object GitHubSkillRuntime : SkillLoader {
         .readTimeout(30, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(true)
+        .applyNetworkTrust()
         .build()
 
     private data class ManifestResolution(

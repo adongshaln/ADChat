@@ -87,6 +87,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     var appConfig by mutableStateOf(store.load())
         private set
+    init {
+        NetworkTrust.allowInsecureCertificates = appConfig.allowInsecureCertificates
+        val loader = coil.ImageLoader.Builder(getApplication())
+            .okHttpClient(okhttp3.OkHttpClient.Builder().applyNetworkTrust().build())
+            .build()
+        coil.Coil.setImageLoader(loader)
+    }
     val modelCache = mutableStateMapOf<String, List<ApiModel>>()
     val connectionStates = mutableStateMapOf<String, ConnectionUiState>()
     var chatInput by mutableStateOf("")
@@ -362,6 +369,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     fun setAllowXSearch(enabled: Boolean) {
         appConfig = appConfig.copy(allowXSearch = enabled)
         persist(); notice = if (enabled) "已允许联网后端使用 X Search" else "已关闭 X Search"
+    }
+
+    fun setAllowInsecureCertificates(enabled: Boolean) {
+        if (appConfig.allowInsecureCertificates == enabled) return
+        NetworkTrust.allowInsecureCertificates = enabled
+        appConfig = appConfig.copy(allowInsecureCertificates = enabled)
+        persist()
+        notice = if (enabled) "已关闭证书校验，仅在信任当前网络时使用" else "已恢复证书校验"
     }
 
     fun setModelContextWindow(profileId: String, model: String, window: Int) {

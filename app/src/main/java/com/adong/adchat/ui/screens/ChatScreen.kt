@@ -29,7 +29,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -184,6 +184,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
         }
     }
     var autoFollow by remember { mutableStateOf(true) }
+    val messageHeights = remember { mutableMapOf<Long, Int>() }
     var composerFocused by remember { mutableStateOf(false) }
     var composerHeightPx by remember { mutableIntStateOf(0) }
     var pendingFileExport by remember { mutableStateOf<ChatFileAttachment?>(null) }
@@ -340,17 +341,25 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                         ),
                         verticalArrangement = Arrangement.spacedBy(30.dp)
                     ) {
-                        items(
+                        itemsIndexed(
                             items = vm.messages,
-                            key = { it.id },
-                            contentType = { it.role }
-                        ) { message ->
+                            key = { _, message -> message.id },
+                            contentType = { _, message -> message.role }
+                        ) { index, message ->
                         ChatMessageItem(
                             message = message,
                             canRegenerate = message.id == regeneratableMessageId,
                             canRetry = message.id == retryableMessageId,
                             onRetry = { vm.retryMessage(message.id) },
                             onRegenerate = { vm.regenerateMessage(message.id) },
+                            modifier = Modifier.onSizeChanged { size ->
+                                val previous = messageHeights[message.id]
+                                messageHeights[message.id] = size.height
+                                if (previous == null || previous == size.height || autoFollow) return@onSizeChanged
+                                if (index > listState.firstVisibleItemIndex) return@onSizeChanged
+                                val delta = size.height - previous
+                                scope.launch { listState.scroll { scrollBy(delta.toFloat()) } }
+                            },
                             onEditResend = {
                                 val index = vm.messages.indexOfFirst { it.id == message.id }
                                 val removedAfter = (vm.messages.size - index - 1).coerceAtLeast(0)

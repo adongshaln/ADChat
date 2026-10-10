@@ -100,7 +100,8 @@ data class AppConfig(
     val allowXSearch: Boolean = false,
     val systemPrompt: String = DEFAULT_SYSTEM_PROMPT,
     val themeMode: String = THEME_MODE_ASTER,
-    val fontWeight: Int = DEFAULT_FONT_WEIGHT
+    val fontWeight: Int = DEFAULT_FONT_WEIGHT,
+    val allowInsecureCertificates: Boolean = false
 ) {
     fun chatProfile(): ApiProfile = profiles.firstOrNull { it.id == activeChatProfileId } ?: profiles.first()
     fun imageProfile(): ApiProfile = profiles.firstOrNull { it.id == activeImageProfileId } ?: profiles.first()
@@ -197,6 +198,7 @@ class ConfigStore(context: Context) {
         .put("systemPrompt", config.systemPrompt)
         .put("themeMode", config.themeMode)
         .put("fontWeight", config.fontWeight)
+        .put("allowInsecureCertificates", config.allowInsecureCertificates)
         .put("profiles", JSONArray().apply {
             config.profiles.forEach { profile ->
                 put(JSONObject()
@@ -285,7 +287,8 @@ class ConfigStore(context: Context) {
             allowXSearch = root.optBoolean("allowXSearch", false),
             systemPrompt = migrateSystemPrompt(root.optString("systemPrompt").ifBlank { DEFAULT_SYSTEM_PROMPT }),
             themeMode = root.optString("themeMode").takeIf { it in setOf(THEME_MODE_DARK, THEME_MODE_SYSTEM) } ?: THEME_MODE_ASTER,
-            fontWeight = root.optInt("fontWeight", DEFAULT_FONT_WEIGHT).coerceIn(FONT_WEIGHT_MIN, FONT_WEIGHT_MAX)
+            fontWeight = root.optInt("fontWeight", DEFAULT_FONT_WEIGHT).coerceIn(FONT_WEIGHT_MIN, FONT_WEIGHT_MAX),
+            allowInsecureCertificates = root.optBoolean("allowInsecureCertificates", false)
         )
     }
 

@@ -18,6 +18,7 @@ private val chatImageClient: OkHttpClient by lazy {
         .readTimeout(25, TimeUnit.SECONDS)
         .followRedirects(true)
         .followSslRedirects(true)
+        .applyNetworkTrust()
         .build()
 }
 

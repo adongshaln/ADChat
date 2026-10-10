@@ -184,6 +184,16 @@ private fun SettingsHome(vm: MainViewModel, onOpenDrawer: () -> Unit, onEdit: (A
                 }
             }
             item {
+                SettingsDisclosure("网络安全", "默认校验服务器证书", Icons.Rounded.Lock) {
+                    SettingSwitch(
+                        title = "关闭证书校验",
+                        subtitle = "允许自签名或不受信任的证书。只在你信任当前网络时打开，否则连接可能被窃听。",
+                        checked = vm.appConfig.allowInsecureCertificates,
+                        onCheckedChange = vm::setAllowInsecureCertificates
+                    )
+                }
+            }
+            item {
                 SettingsDisclosure("外观", "浅色、深色或跟随系统 · 阅读字重可调", Icons.Rounded.Palette) {
                     Row(
                         Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
