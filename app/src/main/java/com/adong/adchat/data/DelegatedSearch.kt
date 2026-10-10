@@ -145,3 +145,31 @@ internal fun parseAnthropicSearch(root: JSONObject): Pair<String, List<ChatCitat
     }
     return text.toString().trim() to citations.values.toList()
 }
+
+internal fun stepSearchRequest(query: String): JSONObject = JSONObject().put("query", query).put("n", 8)
+
+internal fun parseStepSearch(root: JSONObject): Pair<String, List<ChatCitation>> {
+    val results = root.optJSONArray("results") ?: return "" to emptyList()
+    val notes = StringBuilder()
+    val citations = mutableListOf<ChatCitation>()
+    for (index in 0 until results.length()) {
+        val item = results.optJSONObject(index) ?: continue
+        val url = item.optString("url").trim()
+        if (url.isBlank()) continue
+        val title = item.optString("title").ifBlank { url }
+        val snippet = item.optString("snippet").ifBlank { item.optString("content") }.take(500)
+        citations += ChatCitation(title, url)
+        notes.append(title).append('\n').append(url)
+        if (snippet.isNotBlank()) notes.append('\n').append(snippet)
+        notes.append("\n\n")
+    }
+    return notes.toString().trim() to citations
+}
+
+internal fun stepResearchRequest(model: String, query: String, evidence: String): JSONObject = JSONObject()
+    .put("model", model)
+    .put("max_tokens", 4096)
+    .put("system", "你是 Aster 的检索助手。只根据给出的网页检索结果写简明研究笔记，保留日期、名称、数字和不确定之处。不要编造结果里没有的事实。")
+    .put("messages", JSONArray().put(JSONObject()
+        .put("role", "user")
+        .put("content", "检索问题：$query\n\n检索结果：\n$evidence")))

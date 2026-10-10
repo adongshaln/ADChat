@@ -28,7 +28,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.interaction.collectIsDraggedAsState
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -59,7 +58,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
@@ -160,7 +158,6 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
     }
     var showSwitcher by remember { mutableStateOf(false) }
     var showContextDialog by remember { mutableStateOf(false) }
-    var editCandidate by remember { mutableStateOf<com.adong.adchat.data.ChatMessage?>(null) }
     var pendingEditResend by remember { mutableStateOf<com.adong.adchat.data.ChatMessage?>(null) }
     val hostContext = LocalContext.current
     val contextModel = vm.chatProfile.chatModel
@@ -236,7 +233,7 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
     }
     // 重试与继续生成只对最后一条消息开放：这会把该问答追加到列表末尾，作用在中间消息上
     // 等于把这一轮挪到别的提问后面，对话顺序和发给模型的历史会一起错乱。要重做更早的一轮，
-    // 用长按用户消息的「编辑重发」，它按原位截断而不是追加。
+    // 用用户消息下方的「编辑重发」，它按原位截断而不是追加。
     val retryableMessageId by remember {
         derivedStateOf {
             vm.messages.lastOrNull()?.takeIf {
@@ -353,7 +350,15 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                             canRetry = message.id == retryableMessageId,
                             onRetry = { vm.retryMessage(message.id) },
                             onRegenerate = { vm.regenerateMessage(message.id) },
-                            onEditResend = { editCandidate = message },
+                            onEditResend = {
+                                val index = vm.messages.indexOfFirst { it.id == message.id }
+                                val removedAfter = (vm.messages.size - index - 1).coerceAtLeast(0)
+                                if (removedAfter > 0) pendingEditResend = message
+                                else {
+                                    vm.editUserMessage(message.id)
+                                    composerFocusRequester.requestFocus()
+                                }
+                            },
                             onConfigureContext = { showContextDialog = true },
                             onSaveFile = { file ->
                                 pendingFileExport = file
@@ -440,32 +445,6 @@ fun ChatScreen(vm: MainViewModel, onOpenDrawer: () -> Unit, onOpenSettings: () -
                 }
             }
         }
-    }
-    editCandidate?.let { candidate ->
-        val index = vm.messages.indexOfFirst { it.id == candidate.id }
-        val removedAfter = (vm.messages.size - index - 1).coerceAtLeast(0)
-        AdActionSheet(
-            title = "这条消息",
-            subtitle = if (removedAfter > 0) "编辑重发会移除其后的 $removedAfter 条对话" else "编辑后重新发送",
-            actions = listOf(
-                AdActionOption("edit", "编辑重发", "载入输入框，修改后重新发送", Icons.Rounded.Edit),
-                AdActionOption("copy", "复制", "复制消息原文", Icons.Rounded.ContentCopy)
-            ),
-            onAction = { action ->
-                when (action.id) {
-                    "copy" -> {
-                        editCandidate = null
-                        hostContext.getSystemService(android.content.ClipboardManager::class.java)
-                            .setPrimaryClip(android.content.ClipData.newPlainText("Aster", candidate.content))
-                    }
-                    "edit" -> {
-                        editCandidate = null
-                        if (removedAfter > 0) pendingEditResend = candidate else vm.editUserMessage(candidate.id)
-                    }
-                }
-            },
-            onDismiss = { editCandidate = null }
-        )
     }
     pendingEditResend?.let { candidate ->
         val index = vm.messages.indexOfFirst { it.id == candidate.id }
@@ -612,10 +591,7 @@ private fun ChatMessageItem(
                     // 右下的 8dp 小角是 iMessage「气泡尖角指向发送者」的语言；
                     // AI 消息不用气泡时，用户气泡不需要方向性，对称圆角更一致。
                     color = SurfaceInset, contentColor = Ink, shape = RoundedCornerShape(22.dp),
-                    border = BorderStroke(1.dp, Hairline.copy(alpha = .55f)),
-                    modifier = Modifier.pointerInput(message.id) {
-                        detectTapGestures(onLongPress = { onEditResend() })
-                    }
+                    border = BorderStroke(1.dp, Hairline.copy(alpha = .55f))
                 ) {
                     Column(Modifier.padding(7.dp)) {
                         if (message.attachments.isNotEmpty()) {
@@ -631,6 +607,10 @@ private fun ChatMessageItem(
                             }
                         }
                     }
+                }
+                Row(horizontalArrangement = Arrangement.End) {
+                    if (message.content.isNotBlank()) ConversationCopyAction(message.content)
+                    ConversationMessageAction(Icons.Rounded.Edit, "编辑重发", onEditResend)
                 }
             } else {
                 if (!waitingForFirstToken) {

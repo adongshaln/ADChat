@@ -974,7 +974,37 @@ class ApiRepository internal constructor(
 SEARCH QUERY:
 $query"""
         val anthropic = backend.profile.apiFormat == API_FORMAT_ANTHROPIC
-        if (anthropic && normalizedSource == "x") throw IllegalStateException("Anthropic 搜索后端不支持 X Search")
+        if ((anthropic || backend.model.isStepModel()) && normalizedSource == "x") {
+            throw IllegalStateException("当前搜索后端不支持 X Search")
+        }
+        if (backend.model.isStepModel()) {
+            val searchRequest = requestBuilder(backend.profile, resolveUrl(backend.profile.baseUrl, "/v1/search"))
+                .post(stepSearchRequest(query).toString().toRequestBody(jsonMedia))
+                .build()
+            val searchRaw = executeTextCall(client.newCall(searchRequest))
+            val searchRoot = runCatching { JSONObject(searchRaw) }.getOrElse { throw IllegalStateException("Step 搜索返回的不是有效 JSON") }
+            val (evidence, sources) = parseStepSearch(searchRoot)
+            require(sources.isNotEmpty()) { "Step 搜索没有返回结果" }
+            val research = runCatching {
+                val summaryCall = requestBuilder(backend.profile, resolveUrl(backend.profile.baseUrl, backend.profile.messagesPath))
+                if (backend.profile.apiKey.isNotBlank()) {
+                    summaryCall.header("x-api-key", backend.profile.apiKey.trim())
+                    summaryCall.header("anthropic-version", "2023-06-01")
+                }
+                val summaryRequest = summaryCall
+                    .post(stepResearchRequest(backend.model, query, evidence).toString().toRequestBody(jsonMedia))
+                    .build()
+                val summaryRaw = executeTextCall(client.newCall(summaryRequest))
+                val summaryRoot = JSONObject(summaryRaw)
+                parseAnthropicSearch(summaryRoot).first
+            }.getOrDefault("")
+            return@runCatching DelegatedSearchResult(
+                output = delegatedSearchToolOutput(query, normalizedSource, backend.model, research.ifBlank { evidence }, sources),
+                citations = sources,
+                activity = ChatToolActivity(callId, DELEGATED_WEB_SEARCH_TOOL,
+                    "已通过 ${backend.model} 搜索 · ${sources.size} 个来源", TOOL_STATUS_COMPLETED)
+            )
+        }
         val body = if (anthropic) {
             anthropicWebSearchRequest(backend.model, input)
         } else {

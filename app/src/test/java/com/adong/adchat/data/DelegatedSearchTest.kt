@@ -93,5 +93,22 @@ class DelegatedSearchTest {
         assertFalse(anthropicSearchPerformed(JSONObject().put("content", JSONArray().put(JSONObject().put("type", "text").put("text", "没有搜")))))
     }
 
+    @Test
+    fun stepSearchDoesNotUseTheAnthropicServerTool() {
+        assertTrue("stepfun/step-5-preview".isStepModel())
+        assertFalse("claude-sonnet-4-5".isStepModel())
+        val search = stepSearchRequest("樋口円香")
+        assertEquals("樋口円香", search.getString("query"))
+        val parsed = parseStepSearch(JSONObject().put("results", JSONArray().put(JSONObject()
+            .put("title", "作品页")
+            .put("url", "https://www.pixiv.net/artworks/1")
+            .put("snippet", "日常全身"))))
+        assertEquals("https://www.pixiv.net/artworks/1", parsed.second.single().url)
+        assertTrue(parsed.first.contains("日常全身"))
+        val followUp = stepResearchRequest("step-5-preview", "樋口円香", parsed.first)
+        assertFalse(followUp.has("tools"))
+        assertEquals("step-5-preview", followUp.getString("model"))
+    }
+
     private fun JSONArray.toStringList(): List<String> = (0 until length()).map(::getString)
 }

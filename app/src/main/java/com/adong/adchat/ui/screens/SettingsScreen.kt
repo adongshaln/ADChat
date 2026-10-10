@@ -65,6 +65,7 @@ import com.adong.adchat.data.invalidExtraHeaderLines
 import com.adong.adchat.data.usesResponses
 import com.adong.adchat.data.resolveConversationRoute
 import com.adong.adchat.data.normalized
+import com.adong.adchat.data.isStepModel
 import com.adong.adchat.ui.ConnectionPhase
 import com.adong.adchat.ui.ConnectionUiState
 import com.adong.adchat.ui.MainViewModel
@@ -528,6 +529,8 @@ private fun SearchBackendCard(
             )
             Text(
                 when {
+                    profile.searchModel.isStepModel() ->
+                        "已配置 ${profile.searchModel}。Step 模型先调用 /v1/search，再经 Messages 整理笔记，不使用 Anthropic 的 web_search 工具。"
                     profile.apiFormat == API_FORMAT_ANTHROPIC && profile.searchModel.isNotBlank() ->
                         "已配置 ${profile.searchModel}。搜索走 Anthropic Messages 的 web_search，只发送独立查询。"
                     profile.searchModel.isBlank() ->
